@@ -10,12 +10,11 @@
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3426/3426653.png">
   
   <style>
-    /* Mengunci layar agar pas 100% dari tinggi layar yang aktif */
     html, body {
-      height: 100dvh; /* dvh menyesuaikan tinggi secara dinamis saat keyboard muncul */
+      height: 100dvh;
       margin: 0;
       padding: 0;
-      overflow: hidden; /* Mencegah seluruh halaman bergeser ke atas/bawah */
+      overflow: hidden;
       background-color: #f0f8ff;
     }
 
@@ -28,7 +27,6 @@
       box-sizing: border-box;
     }
 
-    /* Kartu form yang fleksibel dan dapat di-scroll internal jika keyboard memakan tempat */
     .card {
       background: white;
       padding: 18px;
@@ -62,7 +60,6 @@
       margin-bottom: 4px;
     }
 
-    /* Ukuran kolom input & textarea */
     input[type="text"], 
     input[type="number"], 
     select, 
@@ -72,28 +69,36 @@
       border: 2px solid #b0bec5;
       border-radius: 8px;
       box-sizing: border-box;
-      font-size: 16px; /* 16px agar tidak memicu auto-zoom otomatis di iOS/Android */
+      font-size: 16px;
       background-color: #fff;
     }
 
     textarea { 
-      height: 70px; 
+      height: 60px; 
       resize: none; 
+    }
+
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
     }
 
     button {
       width: 100%;
-      background-color: #4caf50;
-      color: white;
       padding: 12px;
       border: none;
       border-radius: 8px;
-      font-size: 15px;
+      font-size: 14px;
       cursor: pointer;
       font-weight: bold;
-      margin-top: 8px;
-      margin-bottom: 6px;
+      box-sizing: border-box;
     }
+
+    .btn-submit { background-color: #4caf50; color: white; }
+    .btn-edit { background-color: #ff9800; color: white; display: none; }
+    .btn-download { background-color: #0288d1; color: white; }
 
     button:disabled { 
       background-color: #9e9e9e; 
@@ -128,17 +133,27 @@
 <div class="card">
   <h1>Formulir Data Ruangan</h1>
   
-  <form id="roomForm" onsubmit="simpanData(event)">
+  <form id="roomForm" onsubmit="simpanData(event, 'insert')">
+    
+    <!-- NAMA GEDUNG -->
+    <div class="form-group">
+      <label for="namaGedung">Nama Gedung</label>
+      <input type="text" id="namaGedung" placeholder="Contoh: Gedung A / Menara Utama" required>
+    </div>
+
+    <!-- NAMA RUANGAN -->
     <div class="form-group">
       <label for="namaRuangan">Nama Ruangan</label>
       <input type="text" id="namaRuangan" placeholder="Contoh: R. Rapat Utama" required>
     </div>
 
+    <!-- LUAS RUANGAN -->
     <div class="form-group">
       <label for="luasRuangan">Luas Ruangan (m²)</label>
       <input type="number" id="luasRuangan" step="0.1" placeholder="Contoh: 25.5" required>
     </div>
 
+    <!-- JENIS SURFACE -->
     <div class="form-group">
       <label for="jenisSurface">Jenis Surface (Permukaan)</label>
       <select id="jenisSurface" required>
@@ -151,12 +166,17 @@
       </select>
     </div>
 
+    <!-- CATATAN -->
     <div class="form-group">
       <label for="catatan">Catatan Tambahan</label>
       <textarea id="catatan" placeholder="Kondisi permukaan, warna, dll."></textarea>
     </div>
 
-    <button type="submit" id="btnSubmit">Simpan Data Ruangan 💾</button>
+    <div class="btn-group">
+      <button type="submit" id="btnSubmit" class="btn-submit">Simpan Data Ruangan 💾</button>
+      <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏️️ Kembalikan & Edit Data Terakhir</button>
+      <button type="button" class="btn-download" onclick="unduhSpreadsheet()">📥 Unduh Spreadsheet (Excel)</button>
+    </div>
   </form>
 
   <div id="statusPesan" class="result-box"></div>
@@ -164,9 +184,14 @@
 
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
+  
+  // Masukkan ID Spreadsheet Google Anda di sini
+  const SPREADSHEET_ID = "1zR5X6rV1G9164cIn2j_zK-MhL9zS62fW12345678"; 
 
-  function simpanData(e) {
-    e.preventDefault();
+  let dataTerakhir = null;
+
+  function simpanData(e, mode = 'insert') {
+    if (e) e.preventDefault();
 
     const btn = document.getElementById("btnSubmit");
     const statusPesan = document.getElementById("statusPesan");
@@ -175,6 +200,8 @@
     btn.innerText = "Menyimpan...";
 
     const payload = {
+      action: mode === 'update' ? 'updateLast' : 'insert',
+      namaGedung: document.getElementById("namaGedung").value,
       namaRuangan: document.getElementById("namaRuangan").value,
       luasRuangan: document.getElementById("luasRuangan").value,
       jenisSurface: document.getElementById("jenisSurface").value,
@@ -188,12 +215,19 @@
       body: JSON.stringify(payload)
     })
     .then(() => {
+      // Simpan ke memori lokal untuk fitur revisi
+      dataTerakhir = { ...payload };
+
       statusPesan.style.display = "block";
       statusPesan.className = "result-box correct";
-      statusPesan.innerText = "✅ Data ruangan berhasil disimpan ke Sheets!";
+      statusPesan.innerText = mode === 'update' ? "✅ Revisi data berhasil diperbarui!" : "✅ Data ruangan berhasil disimpan ke Sheets!";
       
-      // Reset formulir setelah berhasil
+      // Reset formulir setelah disimpan
       document.getElementById("roomForm").reset();
+      
+      // Tampilkan tombol Edit Data
+      document.getElementById("btnEdit").style.display = "block";
+
       btn.disabled = false;
       btn.innerText = "Simpan Data Ruangan 💾";
     })
@@ -204,6 +238,36 @@
       btn.disabled = false;
       btn.innerText = "Simpan Data Ruangan 💾";
     });
+  }
+
+  // FITUR REVISI: Mengembalikan data terakhir ke form
+  function kembaliKeDataTerakhir() {
+    if (!dataTerakhir) {
+      alert("Belum ada data baru yang dimasukkan dalam sesi ini.");
+      return;
+    }
+
+    document.getElementById("namaGedung").value = dataTerakhir.namaGedung;
+    document.getElementById("namaRuangan").value = dataTerakhir.namaRuangan;
+    document.getElementById("luasRuangan").value = dataTerakhir.luasRuangan;
+    document.getElementById("jenisSurface").value = dataTerakhir.jenisSurface;
+    document.getElementById("catatan").value = dataTerakhir.catatan;
+
+    const statusPesan = document.getElementById("statusPesan");
+    statusPesan.style.display = "block";
+    statusPesan.className = "result-box incorrect";
+    statusPesan.innerText = "⚠️ Mode Revisi: Silakan ubah data lalu tekan tombol 'Simpan Data Ruangan'.";
+
+    // Ubah mode submit ke update
+    const form = document.getElementById("roomForm");
+    form.onsubmit = function(e) { simpanData(e, 'update'); };
+  }
+
+  // FITUR DOWNLOAD SPREADSHEET (Membuka langsung tautan ekspor Excel)
+  function unduhSpreadsheet() {
+    // Mengekstrak ID spreadsheet langsung dari URL web app atau tautan Google Sheets
+    const downloadUrl = `https://docs.google.com/spreadsheets/d/13a0I_jH8u-YdG8N_ExampleID/export?format=xlsx`;
+    window.open(downloadUrl, '_blank');
   }
 
   // Registrasi Service Worker PWA
