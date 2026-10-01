@@ -30,8 +30,6 @@
       margin-bottom: 20px;
       color: #111827;
     }
-    
-    /* Navigasi Tab */
     .tab-nav {
       display: flex;
       border-bottom: 2px solid #e5e7eb;
@@ -60,7 +58,6 @@
     .tab-content.active {
       display: block;
     }
-
     .form-group {
       margin-bottom: 16px;
     }
@@ -100,10 +97,6 @@
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
       margin-top: 20px;
       transition: background-color 0.2s;
     }
@@ -169,7 +162,6 @@
   <div class="container">
     <h2>Room Data Form</h2>
 
-    <!-- Menu Tab Navigasi -->
     <div class="tab-nav">
       <button class="tab-btn active" onclick="switchTab('inputTab')">Input Form</button>
       <button class="tab-btn" onclick="switchTab('listTab')">Room List & Config</button>
@@ -177,7 +169,7 @@
 
     <form id="roomForm" onsubmit="event.preventDefault(); submitData();">
       
-      <!-- TAB 1: FORM INPUT -->
+      <!-- TAB 1: INPUT FORM -->
       <div id="inputTab" class="tab-content active">
         <div class="form-group">
           <label for="building">Building</label>
@@ -199,7 +191,6 @@
           <input type="number" id="area" placeholder="Contoh: 100" step="any" required>
         </div>
 
-        <!-- INPUT SURFACE TYPE DENGAN MATCHING AUTOCOMPLETE -->
         <div class="form-group">
           <label for="surface">Surface Type</label>
           <input type="text" id="surface" list="surfaceOptions" placeholder="Ketik jenis surface..." required autocomplete="off">
@@ -228,28 +219,31 @@
           <textarea id="notes" placeholder="Surface condition, color, etc."></textarea>
         </div>
 
-        <button type="submit" class="btn-submit" id="btnSave">
-          Save Room Data
-        </button>
+        <button type="submit" class="btn-submit" id="btnSave">Save Room Data</button>
       </div>
 
-      <!-- TAB 2: ROOM LIST & PROJECT CONFIG -->
+      <!-- TAB 2: CONFIG & ROOM LIST -->
       <div id="listTab" class="tab-content">
         <div class="form-group">
           <label for="surveyorName">User / Surveyor Name</label>
-          <input type="text" id="surveyorName" placeholder="Contoh: Dicky" onchange="loadProjectDropdown()">
+          <input type="text" id="surveyorName" placeholder="Contoh: Dicky" required>
+        </div>
+
+        <div class="form-group">
+          <label for="userPin">Password / PIN User</label>
+          <input type="password" id="userPin" placeholder="Masukkan PIN (4-6 angka)" required onchange="loadProjectDropdown()">
         </div>
 
         <div class="form-group">
           <label for="projectName">Project Name (Select Existing)</label>
           <select id="projectName">
-            <option value="">-- Pilih Project --</option>
+            <option value="">-- Masukkan User & PIN Terlebih Dahulu --</option>
           </select>
         </div>
 
         <div class="form-group">
           <label for="newProjectName">Custom / New Project Name</label>
-          <input type="text" id="newProjectName" placeholder="Contoh: test 5">
+          <input type="text" id="newProjectName" placeholder="Contoh: Project Baru">
         </div>
 
         <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
@@ -279,7 +273,6 @@
 
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
-
     let activeEditingRow = null;
 
     function switchTab(tabId) {
@@ -295,23 +288,36 @@
     }
 
     async function loadProjectDropdown() {
+      const surveyor = document.getElementById("surveyorName").value.trim();
+      const pin      = document.getElementById("userPin").value.trim();
       const dropdown = document.getElementById("projectName");
+
+      if (!surveyor || !pin) {
+        dropdown.innerHTML = `<option value="">-- Masukkan User & PIN Terlebih Dahulu --</option>`;
+        return;
+      }
+
       dropdown.innerHTML = `<option value="">Loading projects...</option>`;
 
       try {
-        const response = await fetch(`${SCRIPT_URL}?action=getProjects`);
+        const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(surveyor)}&userPin=${encodeURIComponent(pin)}`);
         const result = await response.json();
 
-        if (result.status === "success" && result.projects) {
+        if (result.status === "success") {
           dropdown.innerHTML = `<option value="">-- Pilih Project --</option>`;
-          result.projects.forEach(proj => {
-            const opt = document.createElement("option");
-            opt.value = proj;
-            opt.innerText = proj;
-            dropdown.appendChild(opt);
-          });
+          if (result.projects.length === 0) {
+            dropdown.innerHTML = `<option value="">-- Belum ada Project (Buat Baru) --</option>`;
+          } else {
+            result.projects.forEach(proj => {
+              const opt = document.createElement("option");
+              opt.value = proj;
+              opt.innerText = proj;
+              dropdown.appendChild(opt);
+            });
+          }
         } else {
-          dropdown.innerHTML = `<option value="">Tidak ada proyek ditemukan</option>`;
+          alert(result.message);
+          dropdown.innerHTML = `<option value="">PIN Salah atau Akses Ditolak</option>`;
         }
       } catch (err) {
         dropdown.innerHTML = `<option value="">Gagal memuat proyek</option>`;
@@ -330,12 +336,22 @@
 
     async function submitData() {
       const btnSave = document.getElementById("btnSave");
+      const surveyor = document.getElementById("surveyorName").value.trim();
+      const pin      = document.getElementById("userPin").value.trim();
+
+      if (!surveyor || !pin) {
+        alert("Nama User dan PIN wajib diisi di Tab 'Room List & Config'");
+        switchTab('listTab');
+        return;
+      }
+
       const activeProject = getSelectedProject();
 
       const payload = {
         action: activeEditingRow ? "editRow" : "create",
         rowIndex: activeEditingRow,
-        surveyorName: document.getElementById("surveyorName").value,
+        surveyorName: surveyor,
+        userPin: pin,
         newProjectName: activeProject,
         building: document.getElementById("building").value,
         floor: document.getElementById("floor").value,
@@ -358,10 +374,9 @@
         const result = await response.json();
 
         if (result.status === "success") {
-          alert(`Berhasil! ${result.message}`);
+          alert(result.message);
           activeEditingRow = null;
 
-          // Hanya bersihkan Room ID, Area, Surface, dan Notes. Building & Floor tetap dipertahankan.
           document.getElementById("roomID").value = "";
           document.getElementById("area").value = "";
           document.getElementById("surface").value = "";
@@ -369,11 +384,10 @@
 
           fetchRoomData();
         } else {
-          alert("Gagal menyimpan data: " + result.message);
+          alert(result.message);
         }
       } catch (err) {
         alert("Terjadi kesalahan koneksi saat menyimpan data.");
-        console.error(err);
       } finally {
         btnSave.disabled = false;
         btnSave.innerText = "Save Room Data";
@@ -382,12 +396,19 @@
 
     async function fetchRoomData() {
       const tableBody = document.getElementById("roomTableBody");
+      const surveyor = document.getElementById("surveyorName").value.trim();
+      const pin      = document.getElementById("userPin").value.trim();
       const activeProject = getSelectedProject();
+
+      if (!surveyor || !pin) {
+        alert("Isi Nama User dan PIN terlebih dahulu.");
+        return;
+      }
 
       tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading data...</td></tr>`;
 
       try {
-        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}`);
+        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(surveyor)}&userPin=${encodeURIComponent(pin)}`);
         const result = await response.json();
 
         if (result.status === "success" && result.data && result.data.length > 0) {
@@ -416,11 +437,15 @@
     async function deleteRow(rowIndex) {
       if (!confirm("Apakah Anda yakin ingin menghapus data ruangan ini?")) return;
 
+      const surveyor = document.getElementById("surveyorName").value.trim();
+      const pin      = document.getElementById("userPin").value.trim();
       const activeProject = getSelectedProject();
 
       const payload = {
         action: "deleteRow",
         rowIndex: rowIndex,
+        surveyorName: surveyor,
+        userPin: pin,
         newProjectName: activeProject
       };
 
@@ -440,7 +465,7 @@
           alert("Gagal menghapus data: " + result.message);
         }
       } catch (err) {
-        alert("Terjadi kesalahan koneksi saat menghapus data.");
+        alert("Terjadi kesalahan koneksi.");
       }
     }
 
@@ -453,11 +478,6 @@
       document.getElementById("surface").value = surface;
       switchTab('inputTab');
     }
-
-    // Panggil saat pertama dimuat
-    window.onload = function() {
-      loadProjectDropdown();
-    };
   </script>
 </body>
 </html>
