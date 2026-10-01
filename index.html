@@ -297,7 +297,59 @@ function unduhSpreadsheet() {
         .then((reg) => console.log('PWA Service Worker terdaftar:', reg.scope))
         .catch((err) => console.error('PWA Registrasi gagal:', err));
     });
+    
+  // 1. Fungsi untuk memuat data tersimpan saat halaman dibuka
+  function loadSavedInputs() {
+    const savedUser = localStorage.getItem("saved_namaUser");
+    const savedProyek = localStorage.getItem("saved_namaProyek");
+    const savedGedung = localStorage.getItem("saved_namaGedung");
+
+    if (savedUser && document.getElementById("namaUser")) {
+      document.getElementById("namaUser").value = savedUser;
+    }
+    if (savedProyek && document.getElementById("namaProyek")) {
+      document.getElementById("namaProyek").value = savedProyek;
+    }
+    if (savedGedung && document.getElementById("namaGedung")) {
+      document.getElementById("namaGedung").value = savedGedung;
+    }
   }
+
+  // 2. Fungsi reset form (hanya mengosongkan detail ruangan)
+  function resetFormSetelahSubmit() {
+    if (document.getElementById("namaRuangan")) document.getElementById("namaRuangan").value = "";
+    if (document.getElementById("luasRuangan")) document.getElementById("luasRuangan").value = "";
+    if (document.getElementById("jenisSurface")) document.getElementById("jenisSurface").value = "";
+    if (document.getElementById("catatan")) document.getElementById("catatan").value = "";
+  }
+
+  // 3. Event listener saat halaman selesai dimuat
+  document.addEventListener("DOMContentLoaded", function() {
+    // Muat data lama dari localStorage
+    loadSavedInputs();
+
+    // Simpan otomatis saat user mengetik
+    const inputUser = document.getElementById("namaUser");
+    if (inputUser) {
+      inputUser.addEventListener("input", function(e) {
+        localStorage.setItem("saved_namaUser", e.target.value);
+      });
+    }
+
+    const inputProyek = document.getElementById("namaProyek");
+    if (inputProyek) {
+      inputProyek.addEventListener("input", function(e) {
+        localStorage.setItem("saved_namaProyek", e.target.value);
+      });
+    }
+
+    const inputGedung = document.getElementById("namaGedung");
+    if (inputGedung) {
+      inputGedung.addEventListener("input", function(e) {
+        localStorage.setItem("saved_namaGedung", e.target.value);
+      });
+    }
+  });
 </script>
 
 </body>
