@@ -341,43 +341,18 @@
     form.onsubmit = function(e) { simpanData(e, 'update'); };
   }
 
-  // Pengunduhan langsung berkas Excel (.xlsx)
+  // Pengunduhan Excel tanpa bentrok dengan Service Worker (PWA)
   function unduhSpreadsheetUser() {
     const namaUser = document.getElementById("namaUser").value.trim();
-    const btnDownload = document.getElementById("btnDownload");
 
     if (!namaUser) {
       alert("Silakan isi Nama User terlebih dahulu untuk mengunduh data!");
       return;
     }
 
-    btnDownload.disabled = true;
-    btnDownload.innerText = "Menyiapkan File Excel...";
-
-    fetch(WEB_APP_URL + "?action=downloadUserSpreadsheet&namaUser=" + encodeURIComponent(namaUser))
-      .then(res => res.text())
-      .then(base64Data => {
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-
-        const link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = "Data_Ruangan_" + namaUser.replace(/\s+/g, "_") + ".xlsx";
-        link.click();
-
-        btnDownload.disabled = false;
-        btnDownload.innerText = "📥 Unduh File Excel (.xlsx)";
-      })
-      .catch(err => {
-        alert("Gagal mengunduh Excel: " + err.message);
-        btnDownload.disabled = false;
-        btnDownload.innerText = "📥 Unduh File Excel (.xlsx)";
-      });
+    // Buka tautan pengunduhan langsung di jendela/tab baru
+    const downloadUrl = WEB_APP_URL + "?action=downloadUserSpreadsheet&namaUser=" + encodeURIComponent(namaUser);
+    window.open(downloadUrl, "_blank");
   }
 
   document.addEventListener("DOMContentLoaded", function() {
