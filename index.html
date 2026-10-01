@@ -131,6 +131,17 @@
 <body>
 
 <div class="card">
+  <!-- NAMA USER -->
+<div class="form-group">
+  <label for="namaUser">Nama User / Surveyor</label>
+  <input type="text" id="namaUser" placeholder="Contoh: Budi" required>
+</div>
+
+<!-- NAMA PROYEK -->
+<div class="form-group">
+  <label for="namaProyek">Nama Proyek</label>
+  <input type="text" id="namaProyek" placeholder="Contoh: Gedung Perkantoran A" required>
+</div>
   <h1>Formulir Data Ruangan</h1>
   
   <form id="roomForm" onsubmit="simpanData(event, 'insert')">
@@ -200,13 +211,15 @@
     btn.innerText = "Menyimpan...";
 
     const payload = {
-      action: mode === 'update' ? 'updateLast' : 'insert',
-      namaGedung: document.getElementById("namaGedung").value,
-      namaRuangan: document.getElementById("namaRuangan").value,
-      luasRuangan: document.getElementById("luasRuangan").value,
-      jenisSurface: document.getElementById("jenisSurface").value,
-      catatan: document.getElementById("catatan").value
-    };
+  action: mode === 'update' ? 'updateLast' : 'insert',
+  namaUser: document.getElementById("namaUser").value.trim(),
+  namaProyek: document.getElementById("namaProyek").value.trim(),
+  namaGedung: document.getElementById("namaGedung").value,
+  namaRuangan: document.getElementById("namaRuangan").value,
+  luasRuangan: document.getElementById("luasRuangan").value,
+  jenisSurface: document.getElementById("jenisSurface").value,
+  catatan: document.getElementById("catatan").value
+};
 
     fetch(WEB_APP_URL, {
       method: "POST",
