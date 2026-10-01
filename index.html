@@ -182,9 +182,28 @@
         <input type="number" id="area" placeholder="Contoh: 100" step="any" required>
       </div>
 
+      <!-- DROPDOWN SURFACE TYPE DENGAN DAFTAR LENGKAP -->
       <div class="form-group">
         <label for="surface">Surface Type</label>
-        <input type="text" id="surface" placeholder="Contoh: Ceramic Tile" required>
+        <select id="surface" required>
+          <option value="" disabled selected>-- Pilih Jenis Surface --</option>
+          <option value="Ceramic">Ceramic</option>
+          <option value="Carpet">Carpet</option>
+          <option value="Terazzo">Terazzo</option>
+          <option value="Marble">Marble</option>
+          <option value="Granite">Granite</option>
+          <option value="Terracotta">Terracotta</option>
+          <option value="Vinyl">Vinyl</option>
+          <option value="Rubber">Rubber</option>
+          <option value="Soil">Soil</option>
+          <option value="Con block">Con block</option>
+          <option value="Asphalt">Asphalt</option>
+          <option value="Parquete">Parquete</option>
+          <option value="Epoxy">Epoxy</option>
+          <option value="Metal">Metal</option>
+          <option value="Stone">Stone</option>
+          <option value="Cement/ Concrete">Cement/ Concrete</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -221,7 +240,7 @@
 
   <script>
     // GANTI SCRIPT_URL DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYOUR_DEPLOYMENT_ID_HERE/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
 
     let activeEditingRow = null;
 
