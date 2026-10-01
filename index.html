@@ -263,12 +263,19 @@
     form.onsubmit = function(e) { simpanData(e, 'update'); };
   }
 
-  // FITUR DOWNLOAD SPREADSHEET (Membuka langsung tautan ekspor Excel)
-  function unduhSpreadsheet() {
-    // Mengekstrak ID spreadsheet langsung dari URL web app atau tautan Google Sheets
-    const downloadUrl = `https://docs.google.com/spreadsheets/d/1WAGOVfSe8hx2dGeFeO_GWnFcQ1JwU-R8qpZhfy-SVWw/edit?gid=0#gid=0`;
-    window.open(downloadUrl, '_blank');
-  }
+  // FITUR DOWNLOAD SPREADSHEET (Paksa Direct Download Excel)
+function unduhSpreadsheet() {
+  const SPREADSHEET_ID = "1WAGOVfSe8hx2dGeFeO_GWnFcQ1JwU-R8qpZhfy-SVWw";
+  const downloadUrl = `https://docs.google.com/spreadsheets/d/${SPREADSPREAD_ID}/export?format=xlsx`;
+
+  // Buat elemen <a> tak terlihat untuk memicu unduhan langsung
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.setAttribute("download", "Areas_Data.xlsx");
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 
   // Registrasi Service Worker PWA
   if ('serviceWorker' in navigator) {
