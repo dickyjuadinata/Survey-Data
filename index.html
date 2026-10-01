@@ -144,7 +144,7 @@
     <!-- NAMA USER -->
     <div class="form-group">
       <label for="namaUser">Nama User / Surveyor</label>
-      <input type="text" id="namaUser" placeholder="Contoh: Budi" required onchange="fetchProyekUser()">
+      <input type="text" id="namaUser" placeholder="Contoh: Dicky" required onchange="fetchProyekUser()">
     </div>
 
     <!-- NAMA PROYEK -->
@@ -206,6 +206,7 @@
 </div>
 
 <script>
+  // GANTI DENGAN WEB APP URL MILIK ANDA
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
 
   let dataTerakhir = null;
@@ -307,7 +308,8 @@
       btn.disabled = false;
       btn.innerText = "Simpan Data Ruangan 💾";
 
-      fetchProyekUser();
+      // Re-fetch daftar proyek setelah file baru otomatis dibuat
+      setTimeout(fetchProyekUser, 1500);
     })
     .catch((error) => {
       statusPesan.style.display = "block";
@@ -341,7 +343,6 @@
     form.onsubmit = function(e) { simpanData(e, 'update'); };
   }
 
-  // Fungsi untuk membuka tab spesifik milik user di Google Sheets
   function bukaFileSpreadsheet() {
     const namaUser = document.getElementById("namaUser").value.trim();
     const namaProyek = document.getElementById("namaProyek").value.trim();
