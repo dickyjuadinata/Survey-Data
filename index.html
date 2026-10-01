@@ -1,27 +1,31 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Room Data Form</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f6f9; padding: 20px; }
-    .card { background: white; max-width: 500px; margin: auto; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .form-group { margin-bottom: 12px; }
-    label { font-size: 12px; font-weight: bold; color: #333; display: block; margin-bottom: 4px; }
-    input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-    .btn-submit { width: 100%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-    .btn-refresh { background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    .btn-edit { background: #ffc107; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f6f9; padding: 20px; color: #333; }
+    .card { background: white; max-width: 500px; margin: auto; padding: 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    h2 { text-align: center; margin-top: 0; font-size: 20px; color: #1a1a1a; }
+    h3 { font-size: 16px; margin-top: 20px; margin-bottom: 10px; }
+    .form-group { margin-bottom: 14px; }
+    label { font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 5px; }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+    textarea { resize: vertical; min-height: 60px; }
+    .btn-submit { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; margin-top: 10px; }
+    .btn-submit:hover { background: #218838; }
+    .btn-refresh { background: #007bff; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    th, td { border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; }
+    th { background-color: #f8f9fa; font-weight: 600; }
+    .btn-edit { background: #ffc107; color: #000; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
   </style>
 </head>
 <body>
 
 <div class="card">
-  <h2 style="text-align: center;">Room Data Form</h2>
+  <h2>Room Data Form</h2>
   
   <form id="roomForm">
     <!-- User / Surveyor Name -->
@@ -41,7 +45,7 @@
       <input type="text" id="newProjectName" placeholder="Or type new project name...">
     </div>
 
-    <!-- Field Gedung & Lantai -->
+    <!-- Building & Floor -->
     <div class="form-group">
       <label>Building</label>
       <input type="text" id="building" placeholder="Main">
@@ -51,7 +55,7 @@
       <input type="text" id="floor" placeholder="Ground">
     </div>
 
-    <!-- Room ID & Luas -->
+    <!-- Room ID & Area -->
     <div class="form-group">
       <label>Room ID / Room Name</label>
       <input type="text" id="roomID" placeholder="e.g. Main Meeting Room">
@@ -61,20 +65,36 @@
       <input type="number" step="any" id="area" placeholder="e.g. 25.5">
     </div>
 
-    <!-- Surface Type -->
+    <!-- Surface Type Auto-Match -->
     <div class="form-group">
       <label>Surface Type</label>
-      <input type="text" id="surface" placeholder="Type or select surface type...">
+      <input type="text" id="surface" list="surfaceOptions" placeholder="Type or select surface type...">
+      <datalist id="surfaceOptions">
+        <option value="Carpet"></option>
+        <option value="Ceramic Tile"></option>
+        <option value="Granite"></option>
+        <option value="Marble"></option>
+        <option value="Vinyl"></option>
+        <option value="Parquet / Wood"></option>
+        <option value="Concrete"></option>
+        <option value="Glass"></option>
+      </datalist>
+    </div>
+
+    <!-- Notes / Remarks (Kolom Catatan) -->
+    <div class="form-group">
+      <label>Notes / Remarks</label>
+      <textarea id="notes" placeholder="Surface condition, color, etc."></textarea>
     </div>
 
     <button type="button" class="btn-submit" onclick="submitData()">Save Room Data 💾</button>
   </form>
 
-  <hr style="margin: 20px 0;">
+  <hr style="margin: 24px 0; border: 0; border-top: 1px solid #eee;">
 
-  <!-- DAFTAR DATA UNTUK REVIEW & EDIT -->
-  <h3>Daftar Data Terinput</h3>
-  <button class="btn-refresh" onclick="fetchRoomData()">🔄 Reload Daftar Data</button>
+  <!-- REVIEW LIST TABLE -->
+  <h3>Registered Room List</h3>
+  <button class="btn-refresh" onclick="fetchRoomData()">🔄 Reload List</button>
 
   <table>
     <thead>
@@ -82,22 +102,21 @@
         <th>Building</th>
         <th>Floor</th>
         <th>Room</th>
-        <th>Aksi</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody id="tableBody">
-      <tr><td colspan="4" style="text-align:center;">Klik Reload untuk memuat data</td></tr>
+      <tr><td colspan="4" style="text-align:center;">Click reload to load data</td></tr>
     </tbody>
   </table>
 </div>
 
 <script>
-  // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx.../exec"; 
+  // MASUKKAN URL DEPLOYMENT WEB APP GOOGLE APPS SCRIPT ANDA
+  const SCRIPT_URL = "URL_WEB_APP_ANDA_DISINI"; 
   
   let activeEditingRow = null;
 
-  // 1. Simpan Data ke Google Sheets (POST)
   async function submitData() {
     const surveyor = document.getElementById("surveyorName").value;
     const customProject = document.getElementById("newProjectName").value;
@@ -111,30 +130,29 @@
       floor: document.getElementById("floor").value,
       roomID: document.getElementById("roomID").value,
       area: document.getElementById("area").value,
-      surface: document.getElementById("surface").value
+      surface: document.getElementById("surface").value,
+      notes: document.getElementById("notes").value
     };
 
     try {
-      const response = await fetch(SCRIPT_URL, {
+      // Menggunakan mode no-cors/fetch standard untuk kompatibilitas Apps Script
+      await fetch(SCRIPT_URL, {
         method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const res = await response.json();
       
-      if (res.status === "success") {
-        alert("Berhasil menyimpan data!");
-        activeEditingRow = null; // Reset mode edit
-        fetchRoomData(); // Perbarui tabel daftar data
-      } else {
-        alert("Gagal: " + res.message);
-      }
+      alert("Room data saved successfully!");
+      activeEditingRow = null;
+      document.getElementById("notes").value = "";
+      fetchRoomData();
     } catch (err) {
-      alert("Terjadi kesalahan saat menyimpan data.");
+      alert("Failed to save data. Please try again.");
       console.error(err);
     }
   }
 
-  // 2. Ambil Daftar Data dari Google Sheets (GET)
   async function fetchRoomData() {
     const surveyor = document.getElementById("surveyorName").value;
     const customProject = document.getElementById("newProjectName").value;
@@ -154,29 +172,29 @@
             <td>${row.floor}</td>
             <td>${row.roomID}</td>
             <td>
-              <button class="btn-edit" onclick="editData(${row.rowIndex}, '${row.building}', '${row.floor}', '${row.roomID}', '${row.surface}', '${row.area}')">✏️ Edit</button>
+              <button class="btn-edit" onclick="editData(${row.rowIndex}, '${row.building}', '${row.floor}', '${row.roomID}', '${row.surface}', '${row.area}', '${row.notes || ''}')">✏️ Edit</button>
             </td>
           `;
           tbody.appendChild(tr);
         });
       } else {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Tidak ada data ditemukan</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No registered room data found</td></tr>`;
       }
     } catch (err) {
-      console.error("Gagal mengambil data:", err);
+      console.error("Failed to load list:", err);
     }
   }
 
-  // 3. Muat Kembali Data ke Form Saat Tombol Edit Diklik
-  function editData(rowIndex, building, floor, roomID, surface, area) {
+  function editData(rowIndex, building, floor, roomID, surface, area, notes) {
     activeEditingRow = rowIndex;
     document.getElementById("building").value = building;
     document.getElementById("floor").value = floor;
     document.getElementById("roomID").value = roomID;
     document.getElementById("surface").value = surface;
     document.getElementById("area").value = area;
+    document.getElementById("notes").value = notes;
     
-    alert(`Data baris ke-${rowIndex} dimuat ke form. Ubah data lalu klik 'Save Room Data'.`);
+    alert(`Loaded row ${rowIndex} to form. Modify and click 'Save Room Data'.`);
   }
 </script>
 
