@@ -131,21 +131,22 @@
 <body>
 
 <div class="card">
-  <!-- NAMA USER -->
-<div class="form-group">
-  <label for="namaUser">Nama User / Surveyor</label>
-  <input type="text" id="namaUser" placeholder="Contoh: Budi" required>
-</div>
-
-<!-- NAMA PROYEK -->
-<div class="form-group">
-  <label for="namaProyek">Nama Proyek</label>
-  <input type="text" id="namaProyek" placeholder="Contoh: Gedung Perkantoran A" required>
-</div>
   <h1>Formulir Data Ruangan</h1>
   
   <form id="roomForm" onsubmit="simpanData(event, 'insert')">
     
+    <!-- NAMA USER -->
+    <div class="form-group">
+      <label for="namaUser">Nama User / Surveyor</label>
+      <input type="text" id="namaUser" placeholder="Contoh: Budi" required>
+    </div>
+
+    <!-- NAMA PROYEK -->
+    <div class="form-group">
+      <label for="namaProyek">Nama Proyek</label>
+      <input type="text" id="namaProyek" placeholder="Contoh: Gedung Perkantoran A" required>
+    </div>
+
     <!-- NAMA GEDUNG -->
     <div class="form-group">
       <label for="namaGedung">Nama Gedung</label>
@@ -185,7 +186,7 @@
 
     <div class="btn-group">
       <button type="submit" id="btnSubmit" class="btn-submit">Simpan Data Ruangan 💾</button>
-      <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏️️ Kembalikan & Edit Data Terakhir</button>
+      <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏ Kembalikan & Edit Data Terakhir</button>
       <button type="button" class="btn-download" onclick="unduhSpreadsheet()">📥 Unduh Spreadsheet (Excel)</button>
     </div>
   </form>
@@ -195,12 +196,22 @@
 
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
-  
-  // Masukkan ID Spreadsheet Google Anda di sini
-  const SPREADSHEET_ID = "1zR5X6rV1G9164cIn2j_zK-MhL9zS62fW12345678"; 
+  const SPREADSHEET_ID = "1WAGOVfSe8hx2dGeFeO_GWnFcQ1JwU-R8qpZhfy-SVWw"; 
 
   let dataTerakhir = null;
 
+  // 1. Memuat data tersimpan dari localStorage saat halaman dibuka/refresh
+  function loadSavedInputs() {
+    const savedUser = localStorage.getItem("saved_namaUser");
+    const savedProyek = localStorage.getItem("saved_namaProyek");
+    const savedGedung = localStorage.getItem("saved_namaGedung");
+
+    if (savedUser) document.getElementById("namaUser").value = savedUser;
+    if (savedProyek) document.getElementById("namaProyek").value = savedProyek;
+    if (savedGedung) document.getElementById("namaGedung").value = savedGedung;
+  }
+
+  // 2. Fungsi Mengirim / Menyimpan Data
   function simpanData(e, mode = 'insert') {
     if (e) e.preventDefault();
 
@@ -211,15 +222,15 @@
     btn.innerText = "Menyimpan...";
 
     const payload = {
-  action: mode === 'update' ? 'updateLast' : 'insert',
-  namaUser: document.getElementById("namaUser").value.trim(),
-  namaProyek: document.getElementById("namaProyek").value.trim(),
-  namaGedung: document.getElementById("namaGedung").value,
-  namaRuangan: document.getElementById("namaRuangan").value,
-  luasRuangan: document.getElementById("luasRuangan").value,
-  jenisSurface: document.getElementById("jenisSurface").value,
-  catatan: document.getElementById("catatan").value
-};
+      action: mode === 'update' ? 'updateLast' : 'insert',
+      namaUser: document.getElementById("namaUser").value.trim(),
+      namaProyek: document.getElementById("namaProyek").value.trim(),
+      namaGedung: document.getElementById("namaGedung").value.trim(),
+      namaRuangan: document.getElementById("namaRuangan").value.trim(),
+      luasRuangan: document.getElementById("luasRuangan").value,
+      jenisSurface: document.getElementById("jenisSurface").value,
+      catatan: document.getElementById("catatan").value.trim()
+    };
 
     fetch(WEB_APP_URL, {
       method: "POST",
@@ -235,9 +246,16 @@
       statusPesan.className = "result-box correct";
       statusPesan.innerText = mode === 'update' ? "✅ Revisi data berhasil diperbarui!" : "✅ Data ruangan berhasil disimpan ke Sheets!";
       
-      // Reset formulir setelah disimpan
-      document.getElementById("roomForm").reset();
+      // Kosongkan hanya detail ruangan (Nama User, Proyek, Gedung tetap bertahan)
+      document.getElementById("namaRuangan").value = "";
+      document.getElementById("luasRuangan").value = "";
+      document.getElementById("jenisSurface").value = "";
+      document.getElementById("catatan").value = "";
       
+      // Kembalikan handler form ke mode insert biasa jika sebelumnya mode update
+      const form = document.getElementById("roomForm");
+      form.onsubmit = function(ev) { simpanData(ev, 'insert'); };
+
       // Tampilkan tombol Edit Data
       document.getElementById("btnEdit").style.display = "block";
 
@@ -253,13 +271,15 @@
     });
   }
 
-  // FITUR REVISI: Mengembalikan data terakhir ke form
+  // 3. FITUR REVISI: Mengembalikan data terakhir ke form
   function kembaliKeDataTerakhir() {
     if (!dataTerakhir) {
       alert("Belum ada data baru yang dimasukkan dalam sesi ini.");
       return;
     }
 
+    document.getElementById("namaUser").value = dataTerakhir.namaUser;
+    document.getElementById("namaProyek").value = dataTerakhir.namaProyek;
     document.getElementById("namaGedung").value = dataTerakhir.namaGedung;
     document.getElementById("namaRuangan").value = dataTerakhir.namaRuangan;
     document.getElementById("luasRuangan").value = dataTerakhir.luasRuangan;
@@ -276,19 +296,35 @@
     form.onsubmit = function(e) { simpanData(e, 'update'); };
   }
 
-  // FITUR DOWNLOAD SPREADSHEET (Paksa Direct Download Excel)
-function unduhSpreadsheet() {
-  const SPREADSHEET_ID = "1WAGOVfSe8hx2dGeFeO_GWnFcQ1JwU-R8qpZhfy-SVWw";
-  const downloadUrl = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/export?format=xlsx";
+  // 4. FITUR DOWNLOAD SPREADSHEET (Direct Download Excel)
+  function unduhSpreadsheet() {
+    const downloadUrl = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/export?format=xlsx";
 
-  // Buat elemen <a> tak terlihat untuk memicu unduhan langsung
-  const a = document.createElement("a");
-  a.href = downloadUrl;
-  a.setAttribute("download", "Areas_Data.xlsx");
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.setAttribute("download", "Areas_Data.xlsx");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // 5. Listener Event untuk Memuat & Menyimpan Otomatis ke localStorage
+  document.addEventListener("DOMContentLoaded", function() {
+    loadSavedInputs();
+
+    // Otomatis simpan saat diketik
+    document.getElementById("namaUser")?.addEventListener("input", function(e) {
+      localStorage.setItem("saved_namaUser", e.target.value);
+    });
+
+    document.getElementById("namaProyek")?.addEventListener("input", function(e) {
+      localStorage.setItem("saved_namaProyek", e.target.value);
+    });
+
+    document.getElementById("namaGedung")?.addEventListener("input", function(e) {
+      localStorage.setItem("saved_namaGedung", e.target.value);
+    });
+  });
 
   // Registrasi Service Worker PWA
   if ('serviceWorker' in navigator) {
