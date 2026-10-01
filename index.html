@@ -2,355 +2,348 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
-  <meta name="theme-color" content="#4caf50">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Formulir Data Ruangan</title>
-  
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3426/3426653.png">
-  
   <style>
-    html, body {
-      height: 100dvh;
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      overflow: hidden;
-      background-color: #f0f8ff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f6f9;
+      color: #333;
+      padding: 20px;
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 10px;
-      box-sizing: border-box;
+      min-height: 100vh;
     }
 
-    .card {
-      background: white;
-      padding: 18px;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-      max-width: 480px;
+    .container {
+      background: #ffffff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
       width: 100%;
-      max-height: 100dvh;
-      overflow-y: auto;
-      box-sizing: border-box;
+      max-width: 500px;
     }
 
-    h1 { 
-      color: #2c3e50; 
-      font-size: 20px; 
-      text-align: center; 
-      margin-top: 0; 
-      margin-bottom: 16px;
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #1a73e8;
     }
 
     .form-group {
-      margin-bottom: 12px;
-      text-align: left;
+      margin-bottom: 15px;
     }
 
-    .form-group label {
+    label {
       display: block;
-      font-size: 13px;
-      font-weight: bold;
-      color: #37474f;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      color: #444;
     }
 
-    input[type="text"], 
-    input[type="number"], 
-    select, 
-    textarea {
+    input, select, textarea {
       width: 100%;
-      padding: 10px;
-      border: 2px solid #b0bec5;
-      border-radius: 8px;
-      box-sizing: border-box;
-      font-size: 16px;
-      background-color: #fff;
+      padding: 10px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s;
     }
 
-    textarea { 
-      height: 60px; 
-      resize: none; 
-    }
-
-    .btn-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 12px;
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #1a73e8;
     }
 
     button {
       width: 100%;
       padding: 12px;
       border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      cursor: pointer;
+      border-radius: 6px;
+      font-size: 15px;
       font-weight: bold;
-      box-sizing: border-box;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      margin-top: 8px;
     }
 
-    .btn-submit { background-color: #4caf50; color: white; }
-    .btn-edit { background-color: #ff9800; color: white; display: none; }
-    .btn-download { background-color: #0288d1; color: white; }
-
-    button:disabled { 
-      background-color: #9e9e9e; 
-      cursor: not-allowed; 
+    .btn-submit {
+      background-color: #1a73e8;
+      color: white;
     }
 
-    .result-box {
-      margin-top: 10px;
+    .btn-submit:hover {
+      background-color: #1557b0;
+    }
+
+    .btn-edit {
+      background-color: #fbbc04;
+      color: #202124;
+    }
+
+    .btn-edit:hover {
+      background-color: #f2a900;
+    }
+
+    .btn-download {
+      background-color: #34a853;
+      color: white;
+    }
+
+    .btn-download:hover {
+      background-color: #2d8e47;
+    }
+
+    #statusMessage {
+      margin-top: 15px;
       padding: 10px;
-      border-radius: 8px;
-      display: none;
-      line-height: 1.3;
-      font-size: 13px;
+      border-radius: 6px;
+      font-size: 14px;
       text-align: center;
+      display: none;
     }
 
-    .correct { 
-      background-color: #e8f5e9; 
-      color: #2e7d32; 
-      border: 1px solid #a5d6a7; 
+    .status-success {
+      background-color: #e6f4ea;
+      color: #137333;
+      border: 1px solid #ceead6;
     }
-    
-    .incorrect { 
-      background-color: #ffebee; 
-      color: #c62828; 
-      border: 1px solid #ef9a9a; 
+
+    .status-error {
+      background-color: #fce8e6;
+      color: #c5221f;
+      border: 1px solid #fad2cf;
     }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <!-- NAMA USER -->
-<div class="form-group">
-  <label for="namaUser">Nama User / Surveyor</label>
-  <input type="text" id="namaUser" placeholder="Contoh: Budi" required>
-</div>
-
-<!-- NAMA PROYEK -->
-<div class="form-group">
-  <label for="namaProyek">Nama Proyek</label>
-  <input type="text" id="namaProyek" placeholder="Contoh: Gedung Perkantoran A" required>
-</div>
-  <h1>Formulir Data Ruangan</h1>
-  
-  <form id="roomForm" onsubmit="simpanData(event, 'insert')">
+  <div class="container">
+    <h2>Formulir Data Ruangan</h2>
     
-    <!-- NAMA GEDUNG -->
-    <div class="form-group">
-      <label for="namaGedung">Nama Gedung</label>
-      <input type="text" id="namaGedung" placeholder="Contoh: Gedung A / Menara Utama" required>
-    </div>
+    <form id="roomForm">
+      <!-- NAMA USER / SURVEYOR -->
+      <div class="form-group">
+        <label for="namaUser">Nama User / Surveyor</label>
+        <input type="text" id="namaUser" placeholder="Contoh: Budi" required>
+      </div>
 
-    <!-- NAMA RUANGAN -->
-    <div class="form-group">
-      <label for="namaRuangan">Nama Ruangan</label>
-      <input type="text" id="namaRuangan" placeholder="Contoh: R. Rapat Utama" required>
-    </div>
+      <!-- NAMA PROYEK -->
+      <div class="form-group">
+        <label for="namaProyek">Nama Proyek</label>
+        <input type="text" id="namaProyek" placeholder="Contoh: Gedung Perkantoran A" required>
+      </div>
 
-    <!-- LUAS RUANGAN -->
-    <div class="form-group">
-      <label for="luasRuangan">Luas Ruangan (m²)</label>
-      <input type="number" id="luasRuangan" step="0.1" placeholder="Contoh: 25.5" required>
-    </div>
+      <!-- NAMA GEDUNG -->
+      <div class="form-group">
+        <label for="namaGedung">Nama Gedung</label>
+        <input type="text" id="namaGedung" placeholder="Contoh: Gedung Utama / Menara B" required>
+      </div>
 
-    <!-- JENIS SURFACE -->
-    <div class="form-group">
-      <label for="jenisSurface">Jenis Surface (Permukaan)</label>
-      <select id="jenisSurface" required>
-        <option value="">-- Pilih Jenis Surface --</option>
-        <option value="Keramik">Keramik</option>
-        <option value="Vinyl">Vinyl</option>
-        <option value="Parquet/Kayu">Parquet / Kayu</option>
-        <option value="Karpet">Karpet</option>
-        <option value="Beton/Epoxy">Beton / Epoxy</option>
-      </select>
-    </div>
+      <!-- NAMA RUANGAN -->
+      <div class="form-group">
+        <label for="namaRuangan">Nama Ruangan</label>
+        <input type="text" id="namaRuangan" placeholder="Contoh: R. Rapat Utama" required>
+      </div>
 
-    <!-- CATATAN -->
-    <div class="form-group">
-      <label for="catatan">Catatan Tambahan</label>
-      <textarea id="catatan" placeholder="Kondisi permukaan, warna, dll."></textarea>
-    </div>
+      <!-- LUAS RUANGAN -->
+      <div class="form-group">
+        <label for="luasRuangan">Luas Ruangan (m²)</label>
+        <input type="number" id="luasRuangan" step="0.01" placeholder="Contoh: 25.5" required>
+      </div>
 
-    <div class="btn-group">
-      <button type="submit" id="btnSubmit" class="btn-submit">Simpan Data Ruangan 💾</button>
-      <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏️️ Kembalikan & Edit Data Terakhir</button>
+      <!-- JENIS SURFACE -->
+      <div class="form-group">
+        <label for="jenisSurface">Jenis Surface / Permukaan</label>
+        <select id="jenisSurface" required>
+          <option value="">-- Pilih Jenis Surface --</option>
+          <option value="Keramik">Keramik</option>
+          <option value="Vinyl">Vinyl</option>
+          <option value="Parquet">Parquet</option>
+          <option value="Karpet">Karpet</option>
+          <option value="Epoxy">Epoxy</option>
+          <option value="Marmer/Granit">Marmer / Granit</option>
+          <option value="Lainnya">Lainnya</option>
+        </select>
+      </div>
+
+      <!-- CATATAN / KETERANGAN -->
+      <div class="form-group">
+        <label for="catatan">Catatan / Keterangan</label>
+        <textarea id="catatan" rows="3" placeholder="Tambahkan catatan jika ada..."></textarea>
+      </div>
+
+      <!-- TOMBOL AKSI -->
+      <button type="submit" id="btnSubmit" class="btn-submit">💾 Simpan Data</button>
+      <button type="button" id="btnEdit" class="btn-edit" onclick="kembalikanDataTerakhir()">✏ Kembalikan & Edit Data Terakhir</button>
       <button type="button" class="btn-download" onclick="unduhSpreadsheet()">📥 Unduh Spreadsheet (Excel)</button>
-    </div>
-  </form>
+    </form>
 
-  <div id="statusPesan" class="result-box"></div>
-</div>
+    <div id="statusMessage"></div>
+  </div>
 
-<script>
-  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
-  
-  // Masukkan ID Spreadsheet Google Anda di sini
-  const SPREADSHEET_ID = "1zR5X6rV1G9164cIn2j_zK-MhL9zS62fW12345678"; 
+  <script>
+    // URL Web App dari Google Apps Script Anda
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwy4_7vU2W-030yvjH-1g_3d5a4g6h7j8k9l0/exec"; // Masukkan URL Deploy Web App Anda jika berbeda
+    const SPREADSHEET_ID = "1WAGOVfSe8hx2dGeFeO_GWnFcQ1JwU-R8qpZhfy-SVWw";
 
-  let dataTerakhir = null;
+    let lastSubmittedData = null;
+    let isEditMode = false;
 
-  function simpanData(e, mode = 'insert') {
-    if (e) e.preventDefault();
+    // --- 1. LOCAL STORAGE (MEMORI TERKAIT REFRESH) ---
+    function loadSavedInputs() {
+      const savedUser = localStorage.getItem("saved_namaUser");
+      const savedProyek = localStorage.getItem("saved_namaProyek");
+      const savedGedung = localStorage.getItem("saved_namaGedung");
 
-    const btn = document.getElementById("btnSubmit");
-    const statusPesan = document.getElementById("statusPesan");
-    
-    btn.disabled = true;
-    btn.innerText = "Menyimpan...";
+      if (savedUser && document.getElementById("namaUser")) {
+        document.getElementById("namaUser").value = savedUser;
+      }
+      if (savedProyek && document.getElementById("namaProyek")) {
+        document.getElementById("namaProyek").value = savedProyek;
+      }
+      if (savedGedung && document.getElementById("namaGedung")) {
+        document.getElementById("namaGedung").value = savedGedung;
+      }
+    }
 
-    const payload = {
-  action: mode === 'update' ? 'updateLast' : 'insert',
-  namaUser: document.getElementById("namaUser").value.trim(),
-  namaProyek: document.getElementById("namaProyek").value.trim(),
-  namaGedung: document.getElementById("namaGedung").value,
-  namaRuangan: document.getElementById("namaRuangan").value,
-  luasRuangan: document.getElementById("luasRuangan").value,
-  jenisSurface: document.getElementById("jenisSurface").value,
-  catatan: document.getElementById("catatan").value
-};
-
-    fetch(WEB_APP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    })
-    .then(() => {
-      // Simpan ke memori lokal untuk fitur revisi
-      dataTerakhir = { ...payload };
-
-      statusPesan.style.display = "block";
-      statusPesan.className = "result-box correct";
-      statusPesan.innerText = mode === 'update' ? "✅ Revisi data berhasil diperbarui!" : "✅ Data ruangan berhasil disimpan ke Sheets!";
+    // --- 2. HANYA KOSONGKAN DETAIL RUANGAN ---
+    function resetRoomInputsOnly() {
+      document.getElementById("namaRuangan").value = "";
+      document.getElementById("luasRuangan").value = "";
+      document.getElementById("jenisSurface").value = "";
+      document.getElementById("catatan").value = "";
       
-      // Reset formulir setelah disimpan
-      document.getElementById("roomForm").reset();
-      
-      // Tampilkan tombol Edit Data
-      document.getElementById("btnEdit").style.display = "block";
+      // Kembalikan status tombol ke simpan biasa
+      isEditMode = false;
+      const btnSubmit = document.getElementById("btnSubmit");
+      btnSubmit.textContent = "💾 Simpan Data";
+      btnSubmit.style.backgroundColor = "#1a73e8";
+    }
 
-      btn.disabled = false;
-      btn.innerText = "Simpan Data Ruangan 💾";
-    })
-    .catch((error) => {
-      statusPesan.style.display = "block";
-      statusPesan.className = "result-box incorrect";
-      statusPesan.innerText = "❌ Gagal menyimpan data: " + error.message;
-      btn.disabled = false;
-      btn.innerText = "Simpan Data Ruangan 💾";
+    // --- 3. PROSES SIMPAN / REVISI DATA ---
+    document.getElementById("roomForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      const payload = {
+        action: isEditMode ? 'updateLast' : 'insert',
+        namaUser: document.getElementById("namaUser").value.trim(),
+        namaProyek: document.getElementById("namaProyek").value.trim(),
+        namaGedung: document.getElementById("namaGedung").value.trim(),
+        namaRuangan: document.getElementById("namaRuangan").value.trim(),
+        luasRuangan: document.getElementById("luasRuangan").value.trim(),
+        jenisSurface: document.getElementById("jenisSurface").value,
+        catatan: document.getElementById("catatan").value.trim()
+      };
+
+      showStatus("Mengirim data...", "info");
+
+      fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors", // Mengatasi CORS bawaan Google Apps Script
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        // Simpan data terakhir di memori JS untuk fitur edit lokal
+        lastSubmittedData = { ...payload };
+
+        showStatus(isEditMode ? "Data berhasil diperbarui!" : "Data berhasil disimpan!", "success");
+        resetRoomInputsOnly();
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        showStatus("Gagal mengirim data. Periksa koneksi internet Anda.", "error");
+      });
     });
-  }
 
-  // FITUR REVISI: Mengembalikan data terakhir ke form
-  function kembaliKeDataTerakhir() {
-    if (!dataTerakhir) {
-      alert("Belum ada data baru yang dimasukkan dalam sesi ini.");
-      return;
+    // --- 4. KEMBALIKAN & EDIT DATA TERAKHIR ---
+    function kembalikanDataTerakhir() {
+      if (!lastSubmittedData) {
+        showStatus("Belum ada data terakhir yang dikirim pada sesi ini.", "error");
+        return;
+      }
+
+      document.getElementById("namaUser").value = lastSubmittedData.namaUser;
+      document.getElementById("namaProyek").value = lastSubmittedData.namaProyek;
+      document.getElementById("namaGedung").value = lastSubmittedData.namaGedung;
+      document.getElementById("namaRuangan").value = lastSubmittedData.namaRuangan;
+      document.getElementById("luasRuangan").value = lastSubmittedData.luasRuangan;
+      document.getElementById("jenisSurface").value = lastSubmittedData.jenisSurface;
+      document.getElementById("catatan").value = lastSubmittedData.catatan;
+
+      isEditMode = true;
+      const btnSubmit = document.getElementById("btnSubmit");
+      btnSubmit.textContent = "🔄 Perbarui Data Terakhir (Revisi)";
+      btnSubmit.style.backgroundColor = "#e67e22";
+
+      showStatus("Data terakhir dimuat ke formulir. Silakan ubah lalu klik 'Perbarui Data Terakhir'.", "info");
     }
 
-    document.getElementById("namaGedung").value = dataTerakhir.namaGedung;
-    document.getElementById("namaRuangan").value = dataTerakhir.namaRuangan;
-    document.getElementById("luasRuangan").value = dataTerakhir.luasRuangan;
-    document.getElementById("jenisSurface").value = dataTerakhir.jenisSurface;
-    document.getElementById("catatan").value = dataTerakhir.catatan;
+    // --- 5. DIRECT DOWNLOAD SPREADSHEET ---
+    function unduhSpreadsheet() {
+      const downloadUrl = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/export?format=xlsx";
 
-    const statusPesan = document.getElementById("statusPesan");
-    statusPesan.style.display = "block";
-    statusPesan.className = "result-box incorrect";
-    statusPesan.innerText = "⚠️ Mode Revisi: Silakan ubah data lalu tekan tombol 'Simpan Data Ruangan'.";
-
-    // Ubah mode submit ke update
-    const form = document.getElementById("roomForm");
-    form.onsubmit = function(e) { simpanData(e, 'update'); };
-  }
-
-  // FITUR DOWNLOAD SPREADSHEET (Paksa Direct Download Excel)
-function unduhSpreadsheet() {
-  const SPREADSHEET_ID = "1WAGOVfSe8hx2dGeFeO_GWnFcQ1JwU-R8qpZhfy-SVWw";
-  const downloadUrl = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/export?format=xlsx";
-
-  // Buat elemen <a> tak terlihat untuk memicu unduhan langsung
-  const a = document.createElement("a");
-  a.href = downloadUrl;
-  a.setAttribute("download", "Areas_Data.xlsx");
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-  // Registrasi Service Worker PWA
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('PWA Service Worker terdaftar:', reg.scope))
-        .catch((err) => console.error('PWA Registrasi gagal:', err));
-    });
-    
-  // 1. Fungsi untuk memuat data tersimpan saat halaman dibuka
-  function loadSavedInputs() {
-    const savedUser = localStorage.getItem("saved_namaUser");
-    const savedProyek = localStorage.getItem("saved_namaProyek");
-    const savedGedung = localStorage.getItem("saved_namaGedung");
-
-    if (savedUser && document.getElementById("namaUser")) {
-      document.getElementById("namaUser").value = savedUser;
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.setAttribute("download", "Areas_Data.xlsx");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
-    if (savedProyek && document.getElementById("namaProyek")) {
-      document.getElementById("namaProyek").value = savedProyek;
+
+    // --- 6. TAMPILKAN PESAN STATUS ---
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById("statusMessage");
+      statusDiv.textContent = message;
+      statusDiv.style.display = "block";
+
+      if (type === "success") {
+        statusDiv.className = "status-success";
+      } else if (type === "error") {
+        statusDiv.className = "status-error";
+      } else {
+        statusDiv.className = "";
+        statusDiv.style.backgroundColor = "#e8f0fe";
+        statusDiv.style.color = "#1a73e8";
+        statusDiv.style.border = "1px solid #aecbfa";
+      }
+
+      setTimeout(() => {
+        if (type === "success") {
+          statusDiv.style.display = "none";
+        }
+      }, 4000);
     }
-    if (savedGedung && document.getElementById("namaGedung")) {
-      document.getElementById("namaGedung").value = savedGedung;
-    }
-  }
 
-  // 2. Fungsi reset form (hanya mengosongkan detail ruangan)
-  function resetFormSetelahSubmit() {
-    if (document.getElementById("namaRuangan")) document.getElementById("namaRuangan").value = "";
-    if (document.getElementById("luasRuangan")) document.getElementById("luasRuangan").value = "";
-    if (document.getElementById("jenisSurface")) document.getElementById("jenisSurface").value = "";
-    if (document.getElementById("catatan")) document.getElementById("catatan").value = "";
-  }
+    // --- 7. EVENT LISTENER SAAT HALAMAN SELESAI DIMUAT ---
+    document.addEventListener("DOMContentLoaded", function() {
+      // Load nilai tersimpan
+      loadSavedInputs();
 
-  // 3. Event listener saat halaman selesai dimuat
-  document.addEventListener("DOMContentLoaded", function() {
-    // Muat data lama dari localStorage
-    loadSavedInputs();
-
-    // Simpan otomatis saat user mengetik
-    const inputUser = document.getElementById("namaUser");
-    if (inputUser) {
-      inputUser.addEventListener("input", function(e) {
+      // Simpan nilai ke localStorage secara real-time saat user mengetik
+      document.getElementById("namaUser")?.addEventListener("input", function(e) {
         localStorage.setItem("saved_namaUser", e.target.value);
       });
-    }
 
-    const inputProyek = document.getElementById("namaProyek");
-    if (inputProyek) {
-      inputProyek.addEventListener("input", function(e) {
+      document.getElementById("namaProyek")?.addEventListener("input", function(e) {
         localStorage.setItem("saved_namaProyek", e.target.value);
       });
-    }
 
-    const inputGedung = document.getElementById("namaGedung");
-    if (inputGedung) {
-      inputGedung.addEventListener("input", function(e) {
+      document.getElementById("namaGedung")?.addEventListener("input", function(e) {
         localStorage.setItem("saved_namaGedung", e.target.value);
       });
-    }
-  });
-</script>
-
+    });
+  </script>
 </body>
 </html>
