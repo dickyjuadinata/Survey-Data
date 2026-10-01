@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
   <meta name="theme-color" content="#4caf50">
-  <title>Formulir Data Ruangan</title>
+  <title>Room Data Form</title>
   
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3426/3426653.png">
@@ -137,68 +137,79 @@
 <body>
 
 <div class="card">
-  <h1>Formulir Data Ruangan</h1>
+  <h1>Room Data Form</h1>
   
   <form id="roomForm" onsubmit="simpanData(event, 'insert')">
     
-    <!-- NAMA USER -->
+    <!-- NAMA USER / SURVEYOR -->
     <div class="form-group">
-      <label for="namaUser">Nama User / Surveyor</label>
-      <input type="text" id="namaUser" placeholder="Contoh: Dicky" required onchange="fetchProyekUser()">
+      <label for="namaUser">User / Surveyor Name</label>
+      <input type="text" id="namaUser" placeholder="e.g. Dicky" required onchange="fetchProyekUser()">
     </div>
 
     <!-- NAMA PROYEK -->
     <div class="form-group">
-      <label for="namaProyek">Nama Proyek</label>
+      <label for="namaProyek">Project Name</label>
       <div class="input-proyek-wrapper">
         <select id="selectProyek" onchange="syncNamaProyek(this.value)">
-          <option value="">-- Ketik Nama User Terlebih Dahulu --</option>
+          <option value="">-- Type User Name First --</option>
         </select>
-        <input type="text" id="namaProyek" placeholder="Atau ketik proyek baru..." required>
+        <input type="text" id="namaProyek" placeholder="Or type new project name..." required>
       </div>
     </div>
 
-    <!-- NAMA GEDUNG -->
+    <!-- NAMA GEDUNG (BUILDING) -->
     <div class="form-group">
-      <label for="namaGedung">Nama Gedung</label>
-      <input type="text" id="namaGedung" placeholder="Contoh: Gedung A / Menara Utama" required>
+      <label for="namaGedung">Building</label>
+      <input type="text" id="namaGedung" placeholder="e.g. Building A / Main Tower" required>
     </div>
 
-    <!-- NAMA RUANGAN -->
+    <!-- NAMA RUANGAN (ROOM ID / NAME) -->
     <div class="form-group">
-      <label for="namaRuangan">Nama Ruangan</label>
-      <input type="text" id="namaRuangan" placeholder="Contoh: R. Rapat Utama" required>
+      <label for="namaRuangan">Room ID / Room Name</label>
+      <input type="text" id="namaRuangan" placeholder="e.g. Main Meeting Room" required>
     </div>
 
-    <!-- LUAS RUANGAN -->
+    <!-- LUAS RUANGAN (AREA m2) -->
     <div class="form-group">
-      <label for="luasRuangan">Luas Ruangan (m²)</label>
-      <input type="number" id="luasRuangan" step="0.1" placeholder="Contoh: 25.5" required>
+      <label for="luasRuangan">Area (m²)</label>
+      <input type="number" id="luasRuangan" step="0.1" placeholder="e.g. 25.5" required>
     </div>
 
     <!-- JENIS SURFACE -->
     <div class="form-group">
-      <label for="jenisSurface">Jenis Surface (Permukaan)</label>
+      <label for="jenisSurface">Surface Type</label>
       <select id="jenisSurface" required>
-        <option value="">-- Pilih Jenis Surface --</option>
-        <option value="Keramik">Keramik</option>
+        <option value="">-- Select Surface Type --</option>
+        <option value="Ceramic">Ceramic</option>
+        <option value="Carpet">Carpet</option>
+        <option value="Terazzo">Terazzo</option>
+        <option value="Marble">Marble</option>
+        <option value="Granite">Granite</option>
+        <option value="Terracotta">Terracotta</option>
         <option value="Vinyl">Vinyl</option>
-        <option value="Parquet/Kayu">Parquet / Kayu</option>
-        <option value="Karpet">Karpet</option>
-        <option value="Beton/Epoxy">Beton / Epoxy</option>
+        <option value="Rubber">Rubber</option>
+        <option value="Soil">Soil</option>
+        <option value="Con block">Con block</option>
+        <option value="Asphalt">Asphalt</option>
+        <option value="Parquete">Parquete</option>
+        <option value="Epoxy">Epoxy</option>
+        <option value="Metal">Metal</option>
+        <option value="Stone">Stone</option>
+        <option value="Cement/ Concrete">Cement/ Concrete</option>
       </select>
     </div>
 
-    <!-- CATATAN -->
+    <!-- CATATAN / REMARKS -->
     <div class="form-group">
-      <label for="catatan">Catatan Tambahan</label>
-      <textarea id="catatan" placeholder="Kondisi permukaan, warna, dll."></textarea>
+      <label for="catatan">Notes / Remarks</label>
+      <textarea id="catatan" placeholder="Surface condition, color, etc."></textarea>
     </div>
 
     <div class="btn-group">
-      <button type="submit" id="btnSubmit" class="btn-submit">Simpan Data Ruangan 💾</button>
-      <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏ Kembalikan & Edit Data Terakhir</button>
-      <button type="button" id="btnView" class="btn-view" onclick="bukaFileSpreadsheet()">📊 Lihat & Edit File Data User</button>
+      <button type="submit" id="btnSubmit" class="btn-submit">Save Room Data 💾</button>
+      <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏ Restore & Edit Last Entry</button>
+      <button type="button" id="btnView" class="btn-view" onclick="bukaFileSpreadsheet()">📊 View & Edit Spreadsheet File</button>
     </div>
   </form>
 
@@ -229,16 +240,16 @@
     const selectProyek = document.getElementById("selectProyek");
 
     if (!namaUser) {
-      selectProyek.innerHTML = '<option value="">-- Ketik Nama User Terlebih Dahulu --</option>';
+      selectProyek.innerHTML = '<option value="">-- Type User Name First --</option>';
       return;
     }
 
-    selectProyek.innerHTML = '<option value="">Memuat proyek...</option>';
+    selectProyek.innerHTML = '<option value="">Loading projects...</option>';
 
     fetch(WEB_APP_URL + "?action=getProjects&namaUser=" + encodeURIComponent(namaUser))
       .then(res => res.json())
       .then(data => {
-        selectProyek.innerHTML = '<option value="">-- Pilih Proyek Yang Ada --</option>';
+        selectProyek.innerHTML = '<option value="">-- Select Existing Project --</option>';
         if (data.status === "success" && data.projects.length > 0) {
           data.projects.forEach(p => {
             const opt = document.createElement("option");
@@ -247,11 +258,11 @@
             selectProyek.appendChild(opt);
           });
         } else {
-          selectProyek.innerHTML = '<option value="">Belum ada proyek tersimpan</option>';
+          selectProyek.innerHTML = '<option value="">No projects found</option>';
         }
       })
       .catch(() => {
-        selectProyek.innerHTML = '<option value="">Gagal memuat proyek</option>';
+        selectProyek.innerHTML = '<option value="">Failed to load projects</option>';
       });
   }
 
@@ -269,7 +280,7 @@
     const statusPesan = document.getElementById("statusPesan");
     
     btn.disabled = true;
-    btn.innerText = "Menyimpan...";
+    btn.innerText = "Saving...";
 
     const payload = {
       action: mode === 'update' ? 'updateLast' : 'insert',
@@ -293,7 +304,7 @@
 
       statusPesan.style.display = "block";
       statusPesan.className = "result-box correct";
-      statusPesan.innerText = mode === 'update' ? "✅ Revisi data berhasil diperbarui!" : "✅ Data ruangan berhasil disimpan ke Sheets!";
+      statusPesan.innerText = mode === 'update' ? "✅ Revision updated successfully!" : "✅ Room data saved successfully to Sheets!";
       
       document.getElementById("namaRuangan").value = "";
       document.getElementById("luasRuangan").value = "";
@@ -306,23 +317,23 @@
       document.getElementById("btnEdit").style.display = "block";
 
       btn.disabled = false;
-      btn.innerText = "Simpan Data Ruangan 💾";
+      btn.innerText = "Save Room Data 💾";
 
-      // Re-fetch daftar proyek setelah file baru otomatis dibuat
+      // Re-fetch daftar proyek setelah file baru dibuat
       setTimeout(fetchProyekUser, 1500);
     })
     .catch((error) => {
       statusPesan.style.display = "block";
       statusPesan.className = "result-box incorrect";
-      statusPesan.innerText = "❌ Gagal menyimpan data: " + error.message;
+      statusPesan.innerText = "❌ Failed to save data: " + error.message;
       btn.disabled = false;
-      btn.innerText = "Simpan Data Ruangan 💾";
+      btn.innerText = "Save Room Data 💾";
     });
   }
 
   function kembaliKeDataTerakhir() {
     if (!dataTerakhir) {
-      alert("Belum ada data baru yang dimasukkan dalam sesi ini.");
+      alert("No new data saved in this session.");
       return;
     }
 
@@ -337,7 +348,7 @@
     const statusPesan = document.getElementById("statusPesan");
     statusPesan.style.display = "block";
     statusPesan.className = "result-box incorrect";
-    statusPesan.innerText = "⚠️ Mode Revisi: Silakan ubah data lalu tekan tombol 'Simpan Data Ruangan'.";
+    statusPesan.innerText = "⚠️ Revision Mode: Update your data then click 'Save Room Data'.";
 
     const form = document.getElementById("roomForm");
     form.onsubmit = function(e) { simpanData(e, 'update'); };
@@ -348,13 +359,13 @@
     const namaProyek = document.getElementById("namaProyek").value.trim();
 
     if (!namaUser) {
-      alert("Silakan isi Nama User terlebih dahulu!");
+      alert("Please enter User Name first!");
       return;
     }
 
     const btnView = document.getElementById("btnView");
     btnView.disabled = true;
-    btnView.innerText = "Membuka File...";
+    btnView.innerText = "Opening File...";
 
     const fetchUrl = WEB_APP_URL + "?action=openSpreadsheet&namaUser=" + encodeURIComponent(namaUser) + "&namaProyek=" + encodeURIComponent(namaProyek);
 
@@ -362,18 +373,18 @@
       .then(res => res.json())
       .then(data => {
         btnView.disabled = false;
-        btnView.innerText = "📊 Lihat & Edit File Data User";
+        btnView.innerText = "📊 View & Edit Spreadsheet File";
 
         if (data.status === "success" && data.url) {
           window.open(data.url, "_blank");
         } else {
-          alert(data.message || "Gagal mendapatkan tautan file Spreadsheet.");
+          alert(data.message || "Failed to retrieve Spreadsheet URL.");
         }
       })
       .catch(err => {
         btnView.disabled = false;
-        btnView.innerText = "📊 Lihat & Edit File Data User";
-        alert("Terjadi kesalahan: " + err.message);
+        btnView.innerText = "📊 View & Edit Spreadsheet File";
+        alert("An error occurred: " + err.message);
       });
   }
 
@@ -396,8 +407,8 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('PWA Service Worker terdaftar:', reg.scope))
-        .catch((err) => console.error('PWA Registrasi gagal:', err));
+        .then((reg) => console.log('PWA Service Worker registered:', reg.scope))
+        .catch((err) => console.error('PWA Registration failed:', err));
     });
   }
 </script>
