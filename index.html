@@ -80,6 +80,7 @@
 
     .input-proyek-wrapper {
       display: flex;
+      flex-direction: column;
       gap: 6px;
     }
 
@@ -146,7 +147,7 @@
       <input type="text" id="namaUser" placeholder="Contoh: Budi" required onchange="fetchProyekUser()">
     </div>
 
-    <!-- NAMA PROYEK (Dropdown / Input Manual) -->
+    <!-- NAMA PROYEK -->
     <div class="form-group">
       <label for="namaProyek">Nama Proyek</label>
       <div class="input-proyek-wrapper">
@@ -209,7 +210,6 @@
 
   let dataTerakhir = null;
 
-  // 1. Memuat data tersimpan dari localStorage saat halaman dibuka
   function loadSavedInputs() {
     const savedUser = localStorage.getItem("saved_namaUser");
     const savedProyek = localStorage.getItem("saved_namaProyek");
@@ -223,7 +223,6 @@
     if (savedGedung) document.getElementById("namaGedung").value = savedGedung;
   }
 
-  // 2. Mengambil daftar proyek unik yang pernah dibuat oleh User
   function fetchProyekUser() {
     const namaUser = document.getElementById("namaUser").value.trim();
     const selectProyek = document.getElementById("selectProyek");
@@ -262,7 +261,6 @@
     }
   }
 
-  // 3. Fungsi Mengirim / Menyimpan Data
   function simpanData(e, mode = 'insert') {
     if (e) e.preventDefault();
 
@@ -296,7 +294,7 @@
       statusPesan.className = "result-box correct";
       statusPesan.innerText = mode === 'update' ? "✅ Revisi data berhasil diperbarui!" : "✅ Data ruangan berhasil disimpan ke Sheets!";
       
-      // Kosongkan hanya detail ruangan
+      // Kosongkan detail ruangan saja
       document.getElementById("namaRuangan").value = "";
       document.getElementById("luasRuangan").value = "";
       document.getElementById("jenisSurface").value = "";
@@ -310,7 +308,6 @@
       btn.disabled = false;
       btn.innerText = "Simpan Data Ruangan 💾";
 
-      // Refresh daftar proyek
       fetchProyekUser();
     })
     .catch((error) => {
@@ -322,7 +319,6 @@
     });
   }
 
-  // 4. FITUR REVISI
   function kembaliKeDataTerakhir() {
     if (!dataTerakhir) {
       alert("Belum ada data baru yang dimasukkan dalam sesi ini.");
@@ -346,7 +342,6 @@
     form.onsubmit = function(e) { simpanData(e, 'update'); };
   }
 
-  // 5. FITUR DOWNLOAD SPREADSHEET KHUSUS USER
   function unduhSpreadsheetUser() {
     const namaUser = document.getElementById("namaUser").value.trim();
 
@@ -359,7 +354,6 @@
     window.open(downloadUrl, "_blank");
   }
 
-  // 6. Listener Event untuk Memuat & Menyimpan Otomatis ke localStorage
   document.addEventListener("DOMContentLoaded", function() {
     loadSavedInputs();
 
@@ -376,7 +370,6 @@
     });
   });
 
-  // Registrasi Service Worker PWA
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
