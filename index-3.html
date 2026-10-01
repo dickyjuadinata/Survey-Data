@@ -136,33 +136,41 @@ button.btn-restart { background-color: #ff9800; }
 <body>
 
 <div class="card">
-  <h1>Kuis Pintar SD Kelas 4 🌟</h1>
-
-  <!-- LAYAR 1: PENGATURAN KUIS & NAMA -->
-  <div id="startScreen">
+  <h1>Formulir Data Ruangan</h1>
+  
+  <form id="roomForm" onsubmit="simpanData(event)">
     <div class="form-group">
-      <label for="namaAnak">Nama Lengkap</label>
-      <input type="text" id="namaAnak" placeholder="Ketik namamu di sini..." autocomplete="off">
+      <label for="namaRuangan">Nama Ruangan</label>
+      <input type="text" id="namaRuangan" placeholder="Contoh: R. Rapat Utama" required>
     </div>
 
     <div class="form-group">
-      <label for="selectMapel">Pilih Mata Pelajaran</label>
-      <select id="selectMapel" onchange="perbaruiOpsiJumlahSoal()">
-        <option value="semua">Semua Mata Pelajaran</option>
-        <option value="Matematika">Matematika</option>
-        <option value="IPAS">IPAS</option>
-        <option value="Bahasa Inggris">Bahasa Inggris</option>
+      <label for="luasRuangan">Luas Ruangan (m²)</label>
+      <input type="number" id="luasRuangan" step="0.1" placeholder="Contoh: 25.5" required>
+    </div>
+
+    <div class="form-group">
+      <label for="jenisSurface">Jenis Surface (Permukaan)</label>
+      <select id="jenisSurface" required>
+        <option value="">-- Pilih Jenis Surface --</option>
+        <option value="Keramik">Keramik</option>
+        <option value="Vinyl">Vinyl</option>
+        <option value="Parquet/Kayu">Parquet / Kayu</option>
+        <option value="Karpet">Karpet</option>
+        <option value="Beton/Epoxy">Beton / Epoxy</option>
       </select>
     </div>
 
     <div class="form-group">
-      <label for="selectJumlah">Pilih Jumlah Soal</label>
-      <select id="selectJumlah">
-      </select>
+      <label for="catatan">Catatan Tambahan</label>
+      <textarea id="catatan" placeholder="Kondisi permukaan, warna, dll."></textarea>
     </div>
 
-    <button id="btnMulai" onclick="mulaiKuis()" disabled>Mulai Kuis 🚀</button>
-  </div>
+    <button type="submit" id="btnSubmit">Simpan Data Ruangan 💾</button>
+  </form>
+
+  <div id="statusPesan" class="result-box"></div>
+</div>
 
   <!-- LAYAR 2: TAMPILAN SOAL & PENILAIAN -->
   <div id="quizScreen">
@@ -195,270 +203,48 @@ button.btn-restart { background-color: #ff9800; }
 </div>
 
 <script>
-  const SPREADSHEET_ID = "1OEc5Hin9AATboY0Hl9RnYd7E8QemA89-QchTzDW0Jp4"; 
-  const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&headers=1`;
+  const WEB_APP_URL = "URL_WEB_APP_GOOGLE_SCRIPT_ANDA";
+
+function simpanData(e) {
+  e.preventDefault();
+
+  const btn = document.getElementById("btnSubmit");
+  const statusPesan = document.getElementById("statusPesan");
   
-  // URL Apps Script dari pengguna
-  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbweQZc6nhgE-I4vBwgCvHwCUgLAQkp0YhJNrBRKviyFqKoQdWkoOUZ1chzhw8vwAKAyGg/exec";
+  btn.disabled = true;
+  btn.innerText = "Menyimpan...";
 
-  let bankSoalUtama = [];
-  let antreanSoal = [];
-  let soalSaatIni = null;
+  const payload = {
+    namaRuangan: document.getElementById("namaRuangan").value,
+    luasRuangan: document.getElementById("luasRuangan").value,
+    jenisSurface: document.getElementById("jenisSurface").value,
+    catatan: document.getElementById("catatan").value
+  };
 
-  let namaSiswa = "";
-  let mapelTerpilihNama = "";
-  let totalSoalDimainkan = 0;
-  let jumlahBenar = 0;
-  let jumlahSalah = 0;
-  let soalSelesaiCount = 0;
-
-  function acakArray(array) {
-    let arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  function ambilTeksSel(cell) {
-    if (!cell) return "";
-    if (cell.f !== undefined && cell.f !== null) return String(cell.f).trim();
-    if (cell.v !== undefined && cell.v !== null) return String(cell.v).trim();
-    return "";
-  }
-
-  function deteksiMapel(teksSoal) {
-    const teksLower = teksSoal.toLowerCase();
-    if (teksLower.includes("[matematika]")) return "Matematika";
-    if (teksLower.includes("[ipas]")) return "IPAS";
-    if (teksLower.includes("[bahasa inggris]")) return "Bahasa Inggris";
-    return "Lainnya";
-  }
-
-  document.getElementById("namaAnak").addEventListener("input", validasiTombolMulai);
-
-  function validasiTombolMulai() {
-    const nama = document.getElementById("namaAnak").value.trim();
-    const jumlahTersedia = parseInt(document.getElementById("selectJumlah").value || 0);
-    document.getElementById("btnMulai").disabled = nama.length === 0 || jumlahTersedia === 0;
-  }
-
-  async function muatBankSoal() {
-    try {
-      const response = await fetch(SHEET_URL);
-      const text = await response.text();
-      const jsonString = text.substring(47, text.length - 2);
-      const data = JSON.parse(jsonString);
-      const rows = data.table.rows;
-
-      bankSoalUtama = [];
-
-      for (let i = 0; i < rows.length; i++) {
-        const c = rows[i].c;
-        if (!c) continue;
-
-        const valA = ambilTeksSel(c[0]);
-        const valB = ambilTeksSel(c[1]);
-        const valC = ambilTeksSel(c[2]);
-
-        if (valA !== "") {
-          bankSoalUtama.push({
-            soal: valA,
-            mapel: deteksiMapel(valA),
-            kataKunci: valB ? valB.split(",").map(k => k.trim().toLowerCase()) : [],
-            kunciJawaban: valC
-          });
-        }
-      }
-
-      perbaruiOpsiJumlahSoal();
-    } catch (error) {
-      console.error("Eror saat memuat soal:", error);
-      alert("Gagal memuat bank soal dari Google Sheets.");
-    }
-  }
-
-  function perbaruiOpsiJumlahSoal() {
-    const mapelTerpilih = document.getElementById("selectMapel").value;
-    const selectJumlah = document.getElementById("selectJumlah");
-    selectJumlah.innerHTML = "";
-
-    const soalTersaring = mapelTerpilih === "semua" 
-      ? bankSoalUtama 
-      : bankSoalUtama.filter(s => s.mapel === mapelTerpilih);
-
-    const totalTersedia = soalTersaring.length;
-
-    if (totalTersedia === 0) {
-      const opt = document.createElement("option");
-      opt.value = 0;
-      opt.textContent = "Tidak ada soal tersedia";
-      selectJumlah.appendChild(opt);
-    } else {
-      for (let n = 5; n < totalTersedia; n += 5) {
-        const opt = document.createElement("option");
-        opt.value = n;
-        opt.textContent = `${n} Soal`;
-        selectJumlah.appendChild(opt);
-      }
-      const optSemua = document.createElement("option");
-      optSemua.value = totalTersedia;
-      optSemua.textContent = `Semua Soal (${totalTersedia} Soal)`;
-      selectJumlah.appendChild(optSemua);
-    }
-
-    validasiTombolMulai();
-  }
-
-  function mulaiKuis() {
-    namaSiswa = document.getElementById("namaAnak").value.trim();
-    if (!namaSiswa) return;
-
-    // Simpan nama ke penyimpanan lokal browser
-    localStorage.setItem("namaSiswaKuis", namaSiswa);
-
-    const selectMapelElem = document.getElementById("selectMapel");
-    const mapelTerpilih = selectMapelElem.value;
-    mapelTerpilihNama = selectMapelElem.options[selectMapelElem.selectedIndex].text;
-
-    const jumlahDiminta = parseInt(document.getElementById("selectJumlah").value);
-
-    let kumpulanSoal = mapelTerpilih === "semua"
-      ? bankSoalUtama
-      : bankSoalUtama.filter(s => s.mapel === mapelTerpilih);
-
-    kumpulanSoal = acakArray(kumpulanSoal);
-    antreanSoal = kumpulanSoal.slice(0, jumlahDiminta);
-
-    totalSoalDimainkan = antreanSoal.length;
-    jumlahBenar = 0;
-    jumlahSalah = 0;
-    soalSelesaiCount = 0;
-
-    document.getElementById("dispNama").innerText = namaSiswa;
-    document.getElementById("startScreen").style.display = "none";
-    document.getElementById("quizScreen").style.display = "block";
-
-    tampilkanSoalBerikutnya();
-  }
-
-  function tampilkanSoalBerikutnya() {
-    if (antreanSoal.length === 0) {
-      tampilkanLayarSelesai();
-      return;
-    }
-
-    soalSaatIni = antreanSoal.pop();
-    soalSelesaiCount++;
-
-    updateStatsBar();
-
-    document.getElementById("soalText").innerText = "Soal " + soalSelesaiCount + ": " + soalSaatIni.soal;
-    document.getElementById("jawabanAnak").value = "";
-    document.getElementById("resultBox").style.display = "none";
-    document.getElementById("btnKirim").style.display = "block";
-    document.getElementById("btnLanjut").style.display = "none";
-  }
-
-  function periksaJawaban() {
-    const inputJawaban = document.getElementById("jawabanAnak").value.trim().toLowerCase();
-    const resultBox = document.getElementById("resultBox");
-
-    if (!inputJawaban) {
-      alert("Tulis jawabanmu terlebih dahulu ya!");
-      return;
-    }
-
-    const isCorrect = soalSaatIni.kataKunci.some(keyword => keyword !== "" && inputJawaban.includes(keyword));
-
-    if (isCorrect) {
-      jumlahBenar++;
-    } else {
-      jumlahSalah++;
-    }
-
-    updateStatsBar();
-
-    resultBox.style.display = "block";
-    if (isCorrect) {
-      resultBox.className = "result-box correct";
-      resultBox.innerHTML = `<strong>Hebat! Jawabanmu Benar! 🎉</strong><br><br>Pintar sekali, jawabanmu tepat!`;
-    } else {
-      resultBox.className = "result-box incorrect";
-      resultBox.innerHTML = `<strong>Hampir Benar! 😊</strong><br><br>Tetap semangat!<br><br><em>Kunci Jawaban:</em><br>${soalSaatIni.kunciJawaban}`;
-    }
-
-    document.getElementById("btnKirim").style.display = "none";
-    document.getElementById("btnLanjut").style.display = "block";
-  }
-
-  function updateStatsBar() {
-    const nilai = totalSoalDimainkan > 0 ? Math.round((jumlahBenar / totalSoalDimainkan) * 100) : 0;
-    document.getElementById("dispProgres").innerText = `${soalSelesaiCount}/${totalSoalDimainkan}`;
-    document.getElementById("dispNilai").innerText = nilai;
-  }
-
-  async function tampilkanLayarSelesai() {
-    const nilaiAkhir = Math.round((jumlahBenar / totalSoalDimainkan) * 100);
-    document.getElementById("quizScreen").style.display = "none";
-    document.getElementById("finishScreen").style.display = "block";
-
-    document.getElementById("finishNama").innerText = namaSiswa;
-    document.getElementById("finishNilai").innerText = nilaiAkhir;
-    document.getElementById("finishDetail").innerText = `Kamu menjawab ${jumlahBenar} benar dan ${jumlahSalah} salah dari total ${totalSoalDimainkan} soal.`;
-
-    const statusElem = document.getElementById("statusSimpan");
-    statusElem.innerText = "Menyimpan nilai ke Google Sheets...";
+  fetch(WEB_APP_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(() => {
+    statusPesan.style.display = "block";
+    statusPesan.className = "result-box correct";
+    statusPesan.innerText = "✅ Data ruangan berhasil disimpan ke Sheets!";
     
-    // Pengiriman data menggunakan URLSearchParams (Compatible dengan e.parameter Google Apps Script)
-    const params = new URLSearchParams({
-      waktu: new Date().toLocaleString("id-ID"),
-      nama: namaSiswa,
-      mapel: mapelTerpilihNama,
-      totalSoal: totalSoalDimainkan,
-      jumlahBenar: jumlahBenar,
-      jumlahSalah: jumlahSalah,
-      nilaiAkhir: nilaiAkhir
-    });
-
-    try {
-      await fetch(WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: params.toString()
-      });
-      statusElem.innerText = "✅ Nilai berhasil disimpan!";
-    } catch (err) {
-      console.error("Gagal menyimpan hasil:", err);
-      statusElem.innerText = "⚠️ Gagal menyimpan nilai otomatis.";
-    }
-  }
-
-  function ulangKuis() {
-    document.getElementById("finishScreen").style.display = "none";
-    document.getElementById("startScreen").style.display = "block";
-    
-    // Nama TIDAK dikosongkan lagi, sehingga user tidak perlu mengetik ulang
-    
-    // Perbarui validasi agar tombol "Mulai Kuis" langsung aktif
-    validasiTombolMulai();
-    
-    muatBankSoal();
-  }
-
-  muatBankSoal();
-  // Otomatis isi nama dari penyimpanan lokal jika pernah main sebelumnya
-  window.addEventListener("DOMContentLoaded", () => {
-    const namaTersimpan = localStorage.getItem("namaSiswaKuis");
-    if (namaTersimpan) {
-      document.getElementById("namaAnak").value = namaTersimpan;
-      validasiTombolMulai();
-    }
+    // Reset form setelah berhasil
+    document.getElementById("roomForm").reset();
+    btn.disabled = false;
+    btn.innerText = "Simpan Data Ruangan 💾";
+  })
+  .catch((error) => {
+    statusPesan.style.display = "block";
+    statusPesan.className = "result-box incorrect";
+    statusPesan.innerText = "❌ Gagal menyimpan data: " + error.message;
+    btn.disabled = false;
+    btn.innerText = "Simpan Data Ruangan 💾";
   });
+}
   // Registrasi PWA Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
