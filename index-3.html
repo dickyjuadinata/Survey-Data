@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4caf50">
+<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3426/3426653.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+  <title>Kuis Pintar Kelas 4 SD</title>
+  <style>
+    /* Mengunci layar agar pas 100% dari tinggi layar yang aktif */
+html, body {
+  height: 100dvh; /* dvh menyesuaikan tinggi secara dinamis saat keyboard muncul */
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Mencegah seluruh halaman bergeser ke atas/bawah */
+  background-color: #f0f8ff;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+/* Kartu kuis yang fleksibel dan bisa di-scroll internal jika keyboard terlalu memakan tempat */
+.card {
+  background: white;
+  padding: 18px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  max-width: 480px;
+  width: 100%;
+  max-height: 100dvh; /* Maksimal setinggi area yang terlihat */
+  overflow-y: auto;   /* Scroll hanya terjadi di dalam kartu jika layar sangat sempit */
+  box-sizing: border-box;
+}
+
+h1 { 
+  color: #2c3e50; 
+  font-size: 20px; 
+  text-align: center; 
+  margin-top: 0; 
+  margin-bottom: 12px;
+}
+
+.form-group {
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: bold;
+  color: #37474f;
+  margin-bottom: 4px;
+}
+
+/* Ukuran kolom input & textarea */
+input[type="text"], select, textarea {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #b0bec5;
+  border-radius: 8px;
+  box-sizing: border-box;
+  font-size: 16px; /* Tetap 16px agar tidak memicu auto-zoom browser */
+  background-color: #fff;
+}
+
+textarea { 
+  height: 60px; 
+  resize: none; 
+}
+
+.score-bar {
+  display: flex;
+  justify-content: space-between;
+  background: #f1f8e9;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #33691e;
+}
+
+.question-box {
+  background: #e1f5fe;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-weight: bold;
+  color: #0277bd;
+  line-height: 1.3;
+  font-size: 14px;
+}
+
+button {
+  width: 100%;
+  background-color: #4caf50;
+  color: white;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+button:disabled { background-color: #9e9e9e; cursor: not-allowed; }
+button.btn-next { background-color: #0288d1; }
+button.btn-restart { background-color: #ff9800; }
+
+.result-box {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  display: none;
+  line-height: 1.3;
+  font-size: 13px;
+}
+
+.correct { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.incorrect { background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+#quizScreen, #finishScreen { display: none; }
+.saving-text { font-size: 12px; color: #666; font-style: italic; margin-top: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Kuis Pintar SD Kelas 4 🌟</h1>
+
+  <!-- LAYAR 1: PENGATURAN KUIS & NAMA -->
+  <div id="startScreen">
+    <div class="form-group">
+      <label for="namaAnak">Nama Lengkap</label>
+      <input type="text" id="namaAnak" placeholder="Ketik namamu di sini..." autocomplete="off">
+    </div>
+
+    <div class="form-group">
+      <label for="selectMapel">Pilih Mata Pelajaran</label>
+      <select id="selectMapel" onchange="perbaruiOpsiJumlahSoal()">
+        <option value="semua">Semua Mata Pelajaran</option>
+        <option value="Matematika">Matematika</option>
+        <option value="IPAS">IPAS</option>
+        <option value="Bahasa Inggris">Bahasa Inggris</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="selectJumlah">Pilih Jumlah Soal</label>
+      <select id="selectJumlah">
+      </select>
+    </div>
+
+    <button id="btnMulai" onclick="mulaiKuis()" disabled>Mulai Kuis 🚀</button>
+  </div>
+
+  <!-- LAYAR 2: TAMPILAN SOAL & PENILAIAN -->
+  <div id="quizScreen">
+    <div class="score-bar">
+      <span>👤 <span id="dispNama">-</span></span>
+      <span>Soal: <span id="dispProgres">0/0</span></span>
+      <span>Nilai: <span id="dispNilai">0</span></span>
+    </div>
+
+    <div class="question-box" id="soalText">Memuat soal...</div>
+
+    <textarea id="jawabanAnak" placeholder="Tulis jawabanmu di sini..."></textarea>
+
+    <button id="btnKirim" onclick="periksaJawaban()">Kirim Jawaban</button>
+    <button id="btnLanjut" class="btn-next" onclick="tampilkanSoalBerikutnya()" style="display: none;">Soal Berikutnya ➡️</button>
+
+    <div id="resultBox" class="result-box"></div>
+  </div>
+
+  <!-- LAYAR 3: HASIL AKHIR -->
+  <div id="finishScreen" style="text-align: center;">
+    <h2>Selesai! 🎉</h2>
+    <p>Hebat sekali, <strong id="finishNama"></strong>!</p>
+    <p style="font-size: 18px;">Nilai Akhirmu:</p>
+    <h1 style="font-size: 48px; color: #2e7d32; margin: 10px 0;" id="finishNilai">0</h1>
+    <p id="finishDetail" style="color: #555;"></p>
+    <p id="statusSimpan" class="saving-text">Menyimpan nilai ke Google Sheets...</p>
+    <button class="btn-restart" onclick="ulangKuis()">Main Lagi 🔄</button>
+  </div>
+</div>
+
+<script>
+  const SPREADSHEET_ID = "1OEc5Hin9AATboY0Hl9RnYd7E8QemA89-QchTzDW0Jp4"; 
+  const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&headers=1`;
+  
+  // URL Apps Script dari pengguna
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbweQZc6nhgE-I4vBwgCvHwCUgLAQkp0YhJNrBRKviyFqKoQdWkoOUZ1chzhw8vwAKAyGg/exec";
+
+  let bankSoalUtama = [];
+  let antreanSoal = [];
+  let soalSaatIni = null;
+
+  let namaSiswa = "";
+  let mapelTerpilihNama = "";
+  let totalSoalDimainkan = 0;
+  let jumlahBenar = 0;
+  let jumlahSalah = 0;
+  let soalSelesaiCount = 0;
+
+  function acakArray(array) {
+    let arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function ambilTeksSel(cell) {
+    if (!cell) return "";
+    if (cell.f !== undefined && cell.f !== null) return String(cell.f).trim();
+    if (cell.v !== undefined && cell.v !== null) return String(cell.v).trim();
+    return "";
+  }
+
+  function deteksiMapel(teksSoal) {
+    const teksLower = teksSoal.toLowerCase();
+    if (teksLower.includes("[matematika]")) return "Matematika";
+    if (teksLower.includes("[ipas]")) return "IPAS";
+    if (teksLower.includes("[bahasa inggris]")) return "Bahasa Inggris";
+    return "Lainnya";
+  }
+
+  document.getElementById("namaAnak").addEventListener("input", validasiTombolMulai);
+
+  function validasiTombolMulai() {
+    const nama = document.getElementById("namaAnak").value.trim();
+    const jumlahTersedia = parseInt(document.getElementById("selectJumlah").value || 0);
+    document.getElementById("btnMulai").disabled = nama.length === 0 || jumlahTersedia === 0;
+  }
+
+  async function muatBankSoal() {
+    try {
+      const response = await fetch(SHEET_URL);
+      const text = await response.text();
+      const jsonString = text.substring(47, text.length - 2);
+      const data = JSON.parse(jsonString);
+      const rows = data.table.rows;
+
+      bankSoalUtama = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const c = rows[i].c;
+        if (!c) continue;
+
+        const valA = ambilTeksSel(c[0]);
+        const valB = ambilTeksSel(c[1]);
+        const valC = ambilTeksSel(c[2]);
+
+        if (valA !== "") {
+          bankSoalUtama.push({
+            soal: valA,
+            mapel: deteksiMapel(valA),
+            kataKunci: valB ? valB.split(",").map(k => k.trim().toLowerCase()) : [],
+            kunciJawaban: valC
+          });
+        }
+      }
+
+      perbaruiOpsiJumlahSoal();
+    } catch (error) {
+      console.error("Eror saat memuat soal:", error);
+      alert("Gagal memuat bank soal dari Google Sheets.");
+    }
+  }
+
+  function perbaruiOpsiJumlahSoal() {
+    const mapelTerpilih = document.getElementById("selectMapel").value;
+    const selectJumlah = document.getElementById("selectJumlah");
+    selectJumlah.innerHTML = "";
+
+    const soalTersaring = mapelTerpilih === "semua" 
+      ? bankSoalUtama 
+      : bankSoalUtama.filter(s => s.mapel === mapelTerpilih);
+
+    const totalTersedia = soalTersaring.length;
+
+    if (totalTersedia === 0) {
+      const opt = document.createElement("option");
+      opt.value = 0;
+      opt.textContent = "Tidak ada soal tersedia";
+      selectJumlah.appendChild(opt);
+    } else {
+      for (let n = 5; n < totalTersedia; n += 5) {
+        const opt = document.createElement("option");
+        opt.value = n;
+        opt.textContent = `${n} Soal`;
+        selectJumlah.appendChild(opt);
+      }
+      const optSemua = document.createElement("option");
+      optSemua.value = totalTersedia;
+      optSemua.textContent = `Semua Soal (${totalTersedia} Soal)`;
+      selectJumlah.appendChild(optSemua);
+    }
+
+    validasiTombolMulai();
+  }
+
+  function mulaiKuis() {
+    namaSiswa = document.getElementById("namaAnak").value.trim();
+    if (!namaSiswa) return;
+
+    // Simpan nama ke penyimpanan lokal browser
+    localStorage.setItem("namaSiswaKuis", namaSiswa);
+
+    const selectMapelElem = document.getElementById("selectMapel");
+    const mapelTerpilih = selectMapelElem.value;
+    mapelTerpilihNama = selectMapelElem.options[selectMapelElem.selectedIndex].text;
+
+    const jumlahDiminta = parseInt(document.getElementById("selectJumlah").value);
+
+    let kumpulanSoal = mapelTerpilih === "semua"
+      ? bankSoalUtama
+      : bankSoalUtama.filter(s => s.mapel === mapelTerpilih);
+
+    kumpulanSoal = acakArray(kumpulanSoal);
+    antreanSoal = kumpulanSoal.slice(0, jumlahDiminta);
+
+    totalSoalDimainkan = antreanSoal.length;
+    jumlahBenar = 0;
+    jumlahSalah = 0;
+    soalSelesaiCount = 0;
+
+    document.getElementById("dispNama").innerText = namaSiswa;
+    document.getElementById("startScreen").style.display = "none";
+    document.getElementById("quizScreen").style.display = "block";
+
+    tampilkanSoalBerikutnya();
+  }
+
+  function tampilkanSoalBerikutnya() {
+    if (antreanSoal.length === 0) {
+      tampilkanLayarSelesai();
+      return;
+    }
+
+    soalSaatIni = antreanSoal.pop();
+    soalSelesaiCount++;
+
+    updateStatsBar();
+
+    document.getElementById("soalText").innerText = "Soal " + soalSelesaiCount + ": " + soalSaatIni.soal;
+    document.getElementById("jawabanAnak").value = "";
+    document.getElementById("resultBox").style.display = "none";
+    document.getElementById("btnKirim").style.display = "block";
+    document.getElementById("btnLanjut").style.display = "none";
+  }
+
+  function periksaJawaban() {
+    const inputJawaban = document.getElementById("jawabanAnak").value.trim().toLowerCase();
+    const resultBox = document.getElementById("resultBox");
+
+    if (!inputJawaban) {
+      alert("Tulis jawabanmu terlebih dahulu ya!");
+      return;
+    }
+
+    const isCorrect = soalSaatIni.kataKunci.some(keyword => keyword !== "" && inputJawaban.includes(keyword));
+
+    if (isCorrect) {
+      jumlahBenar++;
+    } else {
+      jumlahSalah++;
+    }
+
+    updateStatsBar();
+
+    resultBox.style.display = "block";
+    if (isCorrect) {
+      resultBox.className = "result-box correct";
+      resultBox.innerHTML = `<strong>Hebat! Jawabanmu Benar! 🎉</strong><br><br>Pintar sekali, jawabanmu tepat!`;
+    } else {
+      resultBox.className = "result-box incorrect";
+      resultBox.innerHTML = `<strong>Hampir Benar! 😊</strong><br><br>Tetap semangat!<br><br><em>Kunci Jawaban:</em><br>${soalSaatIni.kunciJawaban}`;
+    }
+
+    document.getElementById("btnKirim").style.display = "none";
+    document.getElementById("btnLanjut").style.display = "block";
+  }
+
+  function updateStatsBar() {
+    const nilai = totalSoalDimainkan > 0 ? Math.round((jumlahBenar / totalSoalDimainkan) * 100) : 0;
+    document.getElementById("dispProgres").innerText = `${soalSelesaiCount}/${totalSoalDimainkan}`;
+    document.getElementById("dispNilai").innerText = nilai;
+  }
+
+  async function tampilkanLayarSelesai() {
+    const nilaiAkhir = Math.round((jumlahBenar / totalSoalDimainkan) * 100);
+    document.getElementById("quizScreen").style.display = "none";
+    document.getElementById("finishScreen").style.display = "block";
+
+    document.getElementById("finishNama").innerText = namaSiswa;
+    document.getElementById("finishNilai").innerText = nilaiAkhir;
+    document.getElementById("finishDetail").innerText = `Kamu menjawab ${jumlahBenar} benar dan ${jumlahSalah} salah dari total ${totalSoalDimainkan} soal.`;
+
+    const statusElem = document.getElementById("statusSimpan");
+    statusElem.innerText = "Menyimpan nilai ke Google Sheets...";
+    
+    // Pengiriman data menggunakan URLSearchParams (Compatible dengan e.parameter Google Apps Script)
+    const params = new URLSearchParams({
+      waktu: new Date().toLocaleString("id-ID"),
+      nama: namaSiswa,
+      mapel: mapelTerpilihNama,
+      totalSoal: totalSoalDimainkan,
+      jumlahBenar: jumlahBenar,
+      jumlahSalah: jumlahSalah,
+      nilaiAkhir: nilaiAkhir
+    });
+
+    try {
+      await fetch(WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: params.toString()
+      });
+      statusElem.innerText = "✅ Nilai berhasil disimpan!";
+    } catch (err) {
+      console.error("Gagal menyimpan hasil:", err);
+      statusElem.innerText = "⚠️ Gagal menyimpan nilai otomatis.";
+    }
+  }
+
+  function ulangKuis() {
+    document.getElementById("finishScreen").style.display = "none";
+    document.getElementById("startScreen").style.display = "block";
+    
+    // Nama TIDAK dikosongkan lagi, sehingga user tidak perlu mengetik ulang
+    
+    // Perbarui validasi agar tombol "Mulai Kuis" langsung aktif
+    validasiTombolMulai();
+    
+    muatBankSoal();
+  }
+
+  muatBankSoal();
+  // Otomatis isi nama dari penyimpanan lokal jika pernah main sebelumnya
+  window.addEventListener("DOMContentLoaded", () => {
+    const namaTersimpan = localStorage.getItem("namaSiswaKuis");
+    if (namaTersimpan) {
+      document.getElementById("namaAnak").value = namaTersimpan;
+      validasiTombolMulai();
+    }
+  });
+  // Registrasi PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('PWA Service Worker terdaftar:', reg.scope))
+      .catch((err) => console.error('PWA Registrasi gagal:', err));
+  });
+}
+</script>
+
+</body>
+</html>
