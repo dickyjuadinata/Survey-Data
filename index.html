@@ -198,7 +198,7 @@
     <div class="btn-group">
       <button type="submit" id="btnSubmit" class="btn-submit">Simpan Data Ruangan 💾</button>
       <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏ Kembalikan & Edit Data Terakhir</button>
-      <button type="button" class="btn-download" onclick="unduhSpreadsheetUser()">📥 Unduh Data User Ini (CSV/Excel)</button>
+      <button type="button" id="btnDownload" class="btn-download" onclick="unduhSpreadsheetUser()">📥 Unduh File Excel (.xlsx)</button>
     </div>
   </form>
 
@@ -294,7 +294,6 @@
       statusPesan.className = "result-box correct";
       statusPesan.innerText = mode === 'update' ? "✅ Revisi data berhasil diperbarui!" : "✅ Data ruangan berhasil disimpan ke Sheets!";
       
-      // Kosongkan detail ruangan saja
       document.getElementById("namaRuangan").value = "";
       document.getElementById("luasRuangan").value = "";
       document.getElementById("jenisSurface").value = "";
@@ -342,16 +341,43 @@
     form.onsubmit = function(e) { simpanData(e, 'update'); };
   }
 
+  // Pengunduhan langsung berkas Excel (.xlsx)
   function unduhSpreadsheetUser() {
     const namaUser = document.getElementById("namaUser").value.trim();
+    const btnDownload = document.getElementById("btnDownload");
 
     if (!namaUser) {
       alert("Silakan isi Nama User terlebih dahulu untuk mengunduh data!");
       return;
     }
 
-    const downloadUrl = WEB_APP_URL + "?action=downloadUserSpreadsheet&namaUser=" + encodeURIComponent(namaUser);
-    window.open(downloadUrl, "_blank");
+    btnDownload.disabled = true;
+    btnDownload.innerText = "Menyiapkan File Excel...";
+
+    fetch(WEB_APP_URL + "?action=downloadUserSpreadsheet&namaUser=" + encodeURIComponent(namaUser))
+      .then(res => res.text())
+      .then(base64Data => {
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = "Data_Ruangan_" + namaUser.replace(/\s+/g, "_") + ".xlsx";
+        link.click();
+
+        btnDownload.disabled = false;
+        btnDownload.innerText = "📥 Unduh File Excel (.xlsx)";
+      })
+      .catch(err => {
+        alert("Gagal mengunduh Excel: " + err.message);
+        btnDownload.disabled = false;
+        btnDownload.innerText = "📥 Unduh File Excel (.xlsx)";
+      });
   }
 
   document.addEventListener("DOMContentLoaded", function() {
