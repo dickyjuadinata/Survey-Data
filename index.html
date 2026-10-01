@@ -118,40 +118,45 @@
   let activeEditingRow = null;
 
   async function submitData() {
-    const surveyor = document.getElementById("surveyorName").value;
-    const customProject = document.getElementById("newProjectName").value;
-    
-    const payload = {
-      action: activeEditingRow ? "editRow" : "create",
-      rowIndex: activeEditingRow,
-      surveyorName: surveyor,
-      newProjectName: customProject || surveyor,
-      building: document.getElementById("building").value,
-      floor: document.getElementById("floor").value,
-      roomID: document.getElementById("roomID").value,
-      area: document.getElementById("area").value,
-      surface: document.getElementById("surface").value,
-      notes: document.getElementById("notes").value
-    };
+  const surveyor = document.getElementById("surveyorName").value;
+  const customProject = document.getElementById("newProjectName").value;
+  
+  // Penentuan nama proyek yang akan dipakai
+  const selectedProject = customProject.trim() !== "" ? customProject.trim() : surveyor;
 
-    try {
-      // Menggunakan mode no-cors/fetch standard untuk kompatibilitas Apps Script
-      await fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      
-      alert("Room data saved successfully!");
-      activeEditingRow = null;
-      document.getElementById("notes").value = "";
-      fetchRoomData();
-    } catch (err) {
-      alert("Failed to save data. Please try again.");
-      console.error(err);
-    }
+  const payload = {
+    action: activeEditingRow ? "editRow" : "create",
+    rowIndex: activeEditingRow,
+    surveyorName: surveyor,
+    newProjectName: selectedProject,
+    building: document.getElementById("building").value,
+    floor: document.getElementById("floor").value,
+    roomID: document.getElementById("roomID").value,
+    area: document.getElementById("area").value,
+    surface: document.getElementById("surface").value,
+    notes: document.getElementById("notes").value
+  };
+
+  try {
+    // Gunakan text/plain untuk menghindari kaitan pre-flight CORS pada Apps Script
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    
+    alert(`Data successfully saved to project "1. Analysis - ${selectedProject}"`);
+    
+    activeEditingRow = null;
+    document.getElementById("notes").value = "";
+    
+    // Muat ulang daftar tabel
+    fetchRoomData();
+  } catch (err) {
+    alert("Failed to save data. Please try again.");
+    console.error(err);
   }
+}
 
   async function fetchRoomData() {
     const surveyor = document.getElementById("surveyorName").value;
