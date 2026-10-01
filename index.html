@@ -141,13 +141,13 @@
   
   <form id="roomForm" onsubmit="simpanData(event, 'insert')">
     
-    <!-- NAMA USER / SURVEYOR -->
+    <!-- USER / SURVEYOR NAME -->
     <div class="form-group">
       <label for="namaUser">User / Surveyor Name</label>
       <input type="text" id="namaUser" placeholder="e.g. Dicky" required onchange="fetchProyekUser()">
     </div>
 
-    <!-- NAMA PROYEK -->
+    <!-- PROJECT NAME -->
     <div class="form-group">
       <label for="namaProyek">Project Name</label>
       <div class="input-proyek-wrapper">
@@ -158,49 +158,55 @@
       </div>
     </div>
 
-    <!-- NAMA GEDUNG (BUILDING) -->
+    <!-- BUILDING -->
     <div class="form-group">
       <label for="namaGedung">Building</label>
       <input type="text" id="namaGedung" placeholder="e.g. Building A / Main Tower" required>
     </div>
 
-    <!-- NAMA RUANGAN (ROOM ID / NAME) -->
+    <!-- FLOOR (FREE TEXT) -->
+    <div class="form-group">
+      <label for="lantai">Floor</label>
+      <input type="text" id="lantai" placeholder="e.g. 1st Floor / Level 2 / L1" required>
+    </div>
+
+    <!-- ROOM ID / ROOM NAME -->
     <div class="form-group">
       <label for="namaRuangan">Room ID / Room Name</label>
       <input type="text" id="namaRuangan" placeholder="e.g. Main Meeting Room" required>
     </div>
 
-    <!-- LUAS RUANGAN (AREA m2) -->
+    <!-- AREA (m²) -->
     <div class="form-group">
       <label for="luasRuangan">Area (m²)</label>
       <input type="number" id="luasRuangan" step="0.1" placeholder="e.g. 25.5" required>
     </div>
 
-    <!-- JENIS SURFACE -->
+    <!-- SURFACE TYPE (TYPABLE & AUTO-SUGGEST) -->
     <div class="form-group">
       <label for="jenisSurface">Surface Type</label>
-      <select id="jenisSurface" required>
-        <option value="">-- Select Surface Type --</option>
-        <option value="Ceramic">Ceramic</option>
-        <option value="Carpet">Carpet</option>
-        <option value="Terazzo">Terazzo</option>
-        <option value="Marble">Marble</option>
-        <option value="Granite">Granite</option>
-        <option value="Terracotta">Terracotta</option>
-        <option value="Vinyl">Vinyl</option>
-        <option value="Rubber">Rubber</option>
-        <option value="Soil">Soil</option>
-        <option value="Con block">Con block</option>
-        <option value="Asphalt">Asphalt</option>
-        <option value="Parquete">Parquete</option>
-        <option value="Epoxy">Epoxy</option>
-        <option value="Metal">Metal</option>
-        <option value="Stone">Stone</option>
-        <option value="Cement/ Concrete">Cement/ Concrete</option>
-      </select>
+      <input type="text" id="jenisSurface" list="surfaceOptions" placeholder="Type or select surface type..." required autocomplete="off">
+      <datalist id="surfaceOptions">
+        <option value="Asphalt"></option>
+        <option value="Carpet"></option>
+        <option value="Cement/ Concrete"></option>
+        <option value="Ceramic"></option>
+        <option value="Con block"></option>
+        <option value="Epoxy"></option>
+        <option value="Granite"></option>
+        <option value="Marble"></option>
+        <option value="Metal"></option>
+        <option value="Parquete"></option>
+        <option value="Rubber"></option>
+        <option value="Soil"></option>
+        <option value="Stone"></option>
+        <option value="Terazzo"></option>
+        <option value="Terracotta"></option>
+        <option value="Vinyl"></option>
+      </datalist>
     </div>
 
-    <!-- CATATAN / REMARKS -->
+    <!-- NOTES / REMARKS -->
     <div class="form-group">
       <label for="catatan">Notes / Remarks</label>
       <textarea id="catatan" placeholder="Surface condition, color, etc."></textarea>
@@ -226,6 +232,7 @@
     const savedUser = localStorage.getItem("saved_namaUser");
     const savedProyek = localStorage.getItem("saved_namaProyek");
     const savedGedung = localStorage.getItem("saved_namaGedung");
+    const savedLantai = localStorage.getItem("saved_lantai");
 
     if (savedUser) {
       document.getElementById("namaUser").value = savedUser;
@@ -233,6 +240,7 @@
     }
     if (savedProyek) document.getElementById("namaProyek").value = savedProyek;
     if (savedGedung) document.getElementById("namaGedung").value = savedGedung;
+    if (savedLantai) document.getElementById("lantai").value = savedLantai;
   }
 
   function fetchProyekUser() {
@@ -287,9 +295,10 @@
       namaUser: document.getElementById("namaUser").value.trim(),
       namaProyek: document.getElementById("namaProyek").value.trim(),
       namaGedung: document.getElementById("namaGedung").value.trim(),
+      lantai: document.getElementById("lantai").value.trim(),
       namaRuangan: document.getElementById("namaRuangan").value.trim(),
       luasRuangan: document.getElementById("luasRuangan").value,
-      jenisSurface: document.getElementById("jenisSurface").value,
+      jenisSurface: document.getElementById("jenisSurface").value.trim(),
       catatan: document.getElementById("catatan").value.trim()
     };
 
@@ -319,7 +328,6 @@
       btn.disabled = false;
       btn.innerText = "Save Room Data 💾";
 
-      // Re-fetch daftar proyek setelah file baru dibuat
       setTimeout(fetchProyekUser, 1500);
     })
     .catch((error) => {
@@ -340,6 +348,7 @@
     document.getElementById("namaUser").value = dataTerakhir.namaUser;
     document.getElementById("namaProyek").value = dataTerakhir.namaProyek;
     document.getElementById("namaGedung").value = dataTerakhir.namaGedung;
+    document.getElementById("lantai").value = dataTerakhir.lantai;
     document.getElementById("namaRuangan").value = dataTerakhir.namaRuangan;
     document.getElementById("luasRuangan").value = dataTerakhir.luasRuangan;
     document.getElementById("jenisSurface").value = dataTerakhir.jenisSurface;
@@ -401,6 +410,10 @@
 
     document.getElementById("namaGedung")?.addEventListener("input", function(e) {
       localStorage.setItem("saved_namaGedung", e.target.value);
+    });
+
+    document.getElementById("lantai")?.addEventListener("input", function(e) {
+      localStorage.setItem("saved_lantai", e.target.value);
     });
   });
 
