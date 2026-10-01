@@ -93,6 +93,25 @@
     .btn-reload:hover {
       background-color: #1d4ed8;
     }
+    .btn-edit {
+      background-color: #eab308;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 4px;
+    }
+    .btn-delete {
+      background-color: #ef4444;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
     .table-container {
       margin-top: 24px;
       border-top: 1px solid #e5e7eb;
@@ -140,7 +159,7 @@
 
       <div class="form-group">
         <label for="newProjectName">Custom / New Project Name</label>
-        <input type="text" id="newProjectName" placeholder="Contoh: test 4">
+        <input type="text" id="newProjectName" placeholder="Contoh: test 5">
       </div>
 
       <div class="form-group">
@@ -201,8 +220,8 @@
   </div>
 
   <script>
-    // GANTI URL DI BAWAH INI DENGAN URL WEB APP DEPLOYMENT GOOGLE APPS SCRIPT ANDA
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
+    // GANTI SCRIPT_URL DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYOUR_DEPLOYMENT_ID_HERE/exec";
 
     let activeEditingRow = null;
 
@@ -210,8 +229,6 @@
       const btnSave = document.getElementById("btnSave");
       const surveyor = document.getElementById("surveyorName").value;
       const customProject = document.getElementById("newProjectName").value;
-      
-      // Menggunakan input teks jika diisi, jika tidak menggunakan nama surveyor
       const selectedProject = customProject.trim() !== "" ? customProject.trim() : surveyor;
 
       const payload = {
@@ -248,7 +265,7 @@
           alert("Gagal menyimpan data: " + result.message);
         }
       } catch (err) {
-        alert("Terjadi kesalahan koneksi saat menyimpan data ke Google Drive.");
+        alert("Terjadi kesalahan koneksi saat menyimpan data.");
         console.error(err);
       } finally {
         btnSave.disabled = false;
@@ -276,7 +293,10 @@
               <td>${item.building}</td>
               <td>${item.floor}</td>
               <td>${item.roomID}</td>
-              <td><button onclick="editRow('${item.rowIndex}', '${item.building}', '${item.floor}', '${item.roomID}', '${item.area}', '${item.surface}', '${item.notes}')">Edit</button></td>
+              <td>
+                <button class="btn-edit" onclick="editRow('${item.rowIndex}', '${item.building}', '${item.floor}', '${item.roomID}', '${item.area}', '${item.surface}', '${item.notes}')">Edit</button>
+                <button class="btn-delete" onclick="deleteRow('${item.rowIndex}')">Delete</button>
+              </td>
             `;
             tableBody.appendChild(tr);
           });
@@ -285,6 +305,40 @@
         }
       } catch (err) {
         tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Failed to fetch data</td></tr>`;
+        console.error(err);
+      }
+    }
+
+    async function deleteRow(rowIndex) {
+      if (!confirm("Apakah Anda yakin ingin menghapus data ruangan ini?")) return;
+
+      const surveyor = document.getElementById("surveyorName").value;
+      const customProject = document.getElementById("newProjectName").value;
+      const selectedProject = customProject.trim() !== "" ? customProject.trim() : surveyor;
+
+      const payload = {
+        action: "deleteRow",
+        rowIndex: rowIndex,
+        newProjectName: selectedProject
+      };
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          alert("Data berhasil dihapus!");
+          fetchRoomData();
+        } else {
+          alert("Gagal menghapus data: " + result.message);
+        }
+      } catch (err) {
+        alert("Terjadi kesalahan koneksi saat menghapus data.");
         console.error(err);
       }
     }
