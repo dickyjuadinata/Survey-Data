@@ -198,7 +198,7 @@
     <div class="btn-group">
       <button type="submit" id="btnSubmit" class="btn-submit">Simpan Data Ruangan 💾</button>
       <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏ Kembalikan & Edit Data Terakhir</button>
-      <button type="button" id="btnView" class="btn-view" onclick="bukaFileSpreadsheet()">📊 Lihat & Edit File Data</button>
+      <button type="button" id="btnView" class="btn-view" onclick="bukaFileSpreadsheet()">📊 Lihat & Edit File Data User</button>
     </div>
   </form>
 
@@ -341,27 +341,37 @@
     form.onsubmit = function(e) { simpanData(e, 'update'); };
   }
 
-  // Fungsi untuk membuka file Google Sheets secara langsung di tab baru
+  // Fungsi untuk membuka tab spesifik milik user di Google Sheets
   function bukaFileSpreadsheet() {
+    const namaUser = document.getElementById("namaUser").value.trim();
+    const namaProyek = document.getElementById("namaProyek").value.trim();
+
+    if (!namaUser) {
+      alert("Silakan isi Nama User terlebih dahulu!");
+      return;
+    }
+
     const btnView = document.getElementById("btnView");
     btnView.disabled = true;
     btnView.innerText = "Membuka File...";
 
-    fetch(WEB_APP_URL + "?action=openSpreadsheet")
+    const fetchUrl = WEB_APP_URL + "?action=openSpreadsheet&namaUser=" + encodeURIComponent(namaUser) + "&namaProyek=" + encodeURIComponent(namaProyek);
+
+    fetch(fetchUrl)
       .then(res => res.json())
       .then(data => {
         btnView.disabled = false;
-        btnView.innerText = "📊 Lihat & Edit File Data";
+        btnView.innerText = "📊 Lihat & Edit File Data User";
 
         if (data.status === "success" && data.url) {
           window.open(data.url, "_blank");
         } else {
-          alert("Gagal mendapatkan tautan file Spreadsheet.");
+          alert(data.message || "Gagal mendapatkan tautan file Spreadsheet.");
         }
       })
       .catch(err => {
         btnView.disabled = false;
-        btnView.innerText = "📊 Lihat & Edit File Data";
+        btnView.innerText = "📊 Lihat & Edit File Data User";
         alert("Terjadi kesalahan: " + err.message);
       });
   }
