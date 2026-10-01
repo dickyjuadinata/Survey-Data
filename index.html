@@ -78,6 +78,11 @@
       resize: none; 
     }
 
+    .input-proyek-wrapper {
+      display: flex;
+      gap: 6px;
+    }
+
     .btn-group {
       display: flex;
       flex-direction: column;
@@ -138,13 +143,18 @@
     <!-- NAMA USER -->
     <div class="form-group">
       <label for="namaUser">Nama User / Surveyor</label>
-      <input type="text" id="namaUser" placeholder="Contoh: Budi" required>
+      <input type="text" id="namaUser" placeholder="Contoh: Budi" required onchange="fetchProyekUser()">
     </div>
 
-    <!-- NAMA PROYEK -->
+    <!-- NAMA PROYEK (Dropdown / Input Manual) -->
     <div class="form-group">
       <label for="namaProyek">Nama Proyek</label>
-      <input type="text" id="namaProyek" placeholder="Contoh: Gedung Perkantoran A" required>
+      <div class="input-proyek-wrapper">
+        <select id="selectProyek" onchange="syncNamaProyek(this.value)">
+          <option value="">-- Ketik Nama User Terlebih Dahulu --</option>
+        </select>
+        <input type="text" id="namaProyek" placeholder="Atau ketik proyek baru..." required>
+      </div>
     </div>
 
     <!-- NAMA GEDUNG -->
@@ -187,7 +197,7 @@
     <div class="btn-group">
       <button type="submit" id="btnSubmit" class="btn-submit">Simpan Data Ruangan 💾</button>
       <button type="button" id="btnEdit" class="btn-edit" onclick="kembaliKeDataTerakhir()">✏ Kembalikan & Edit Data Terakhir</button>
-      <button type="button" class="btn-download" onclick="unduhSpreadsheet()">📥 Unduh Spreadsheet (Excel)</button>
+      <button type="button" class="btn-download" onclick="unduhSpreadsheetUser()">📥 Unduh Data User Ini (CSV/Excel)</button>
     </div>
   </form>
 
@@ -196,22 +206,63 @@
 
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
-  const SPREADSHEET_ID = "1WAGOVfSe8hx2dGeFeO_GWnFcQ1JwU-R8qpZhfy-SVWw"; 
 
   let dataTerakhir = null;
 
-  // 1. Memuat data tersimpan dari localStorage saat halaman dibuka/refresh
+  // 1. Memuat data tersimpan dari localStorage saat halaman dibuka
   function loadSavedInputs() {
     const savedUser = localStorage.getItem("saved_namaUser");
     const savedProyek = localStorage.getItem("saved_namaProyek");
     const savedGedung = localStorage.getItem("saved_namaGedung");
 
-    if (savedUser) document.getElementById("namaUser").value = savedUser;
+    if (savedUser) {
+      document.getElementById("namaUser").value = savedUser;
+      fetchProyekUser();
+    }
     if (savedProyek) document.getElementById("namaProyek").value = savedProyek;
     if (savedGedung) document.getElementById("namaGedung").value = savedGedung;
   }
 
-  // 2. Fungsi Mengirim / Menyimpan Data
+  // 2. Mengambil daftar proyek unik yang pernah dibuat oleh User
+  function fetchProyekUser() {
+    const namaUser = document.getElementById("namaUser").value.trim();
+    const selectProyek = document.getElementById("selectProyek");
+
+    if (!namaUser) {
+      selectProyek.innerHTML = '<option value="">-- Ketik Nama User Terlebih Dahulu --</option>';
+      return;
+    }
+
+    selectProyek.innerHTML = '<option value="">Memuat proyek...</option>';
+
+    fetch(WEB_APP_URL + "?action=getProjects&namaUser=" + encodeURIComponent(namaUser))
+      .then(res => res.json())
+      .then(data => {
+        selectProyek.innerHTML = '<option value="">-- Pilih Proyek Yang Ada --</option>';
+        if (data.status === "success" && data.projects.length > 0) {
+          data.projects.forEach(p => {
+            const opt = document.createElement("option");
+            opt.value = p;
+            opt.textContent = p;
+            selectProyek.appendChild(opt);
+          });
+        } else {
+          selectProyek.innerHTML = '<option value="">Belum ada proyek tersimpan</option>';
+        }
+      })
+      .catch(() => {
+        selectProyek.innerHTML = '<option value="">Gagal memuat proyek</option>';
+      });
+  }
+
+  function syncNamaProyek(val) {
+    if (val) {
+      document.getElementById("namaProyek").value = val;
+      localStorage.setItem("saved_namaProyek", val);
+    }
+  }
+
+  // 3. Fungsi Mengirim / Menyimpan Data
   function simpanData(e, mode = 'insert') {
     if (e) e.preventDefault();
 
@@ -239,28 +290,28 @@
       body: JSON.stringify(payload)
     })
     .then(() => {
-      // Simpan ke memori lokal untuk fitur revisi
       dataTerakhir = { ...payload };
 
       statusPesan.style.display = "block";
       statusPesan.className = "result-box correct";
       statusPesan.innerText = mode === 'update' ? "✅ Revisi data berhasil diperbarui!" : "✅ Data ruangan berhasil disimpan ke Sheets!";
       
-      // Kosongkan hanya detail ruangan (Nama User, Proyek, Gedung tetap bertahan)
+      // Kosongkan hanya detail ruangan
       document.getElementById("namaRuangan").value = "";
       document.getElementById("luasRuangan").value = "";
       document.getElementById("jenisSurface").value = "";
       document.getElementById("catatan").value = "";
       
-      // Kembalikan handler form ke mode insert biasa jika sebelumnya mode update
       const form = document.getElementById("roomForm");
       form.onsubmit = function(ev) { simpanData(ev, 'insert'); };
 
-      // Tampilkan tombol Edit Data
       document.getElementById("btnEdit").style.display = "block";
 
       btn.disabled = false;
       btn.innerText = "Simpan Data Ruangan 💾";
+
+      // Refresh daftar proyek
+      fetchProyekUser();
     })
     .catch((error) => {
       statusPesan.style.display = "block";
@@ -271,7 +322,7 @@
     });
   }
 
-  // 3. FITUR REVISI: Mengembalikan data terakhir ke form
+  // 4. FITUR REVISI
   function kembaliKeDataTerakhir() {
     if (!dataTerakhir) {
       alert("Belum ada data baru yang dimasukkan dalam sesi ini.");
@@ -291,28 +342,27 @@
     statusPesan.className = "result-box incorrect";
     statusPesan.innerText = "⚠️ Mode Revisi: Silakan ubah data lalu tekan tombol 'Simpan Data Ruangan'.";
 
-    // Ubah mode submit ke update
     const form = document.getElementById("roomForm");
     form.onsubmit = function(e) { simpanData(e, 'update'); };
   }
 
-  // 4. FITUR DOWNLOAD SPREADSHEET (Direct Download Excel)
-  function unduhSpreadsheet() {
-    const downloadUrl = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID + "/export?format=xlsx";
+  // 5. FITUR DOWNLOAD SPREADSHEET KHUSUS USER
+  function unduhSpreadsheetUser() {
+    const namaUser = document.getElementById("namaUser").value.trim();
 
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.setAttribute("download", "Areas_Data.xlsx");
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    if (!namaUser) {
+      alert("Silakan isi Nama User terlebih dahulu untuk mengunduh data!");
+      return;
+    }
+
+    const downloadUrl = WEB_APP_URL + "?action=downloadUserSpreadsheet&namaUser=" + encodeURIComponent(namaUser);
+    window.open(downloadUrl, "_blank");
   }
 
-  // 5. Listener Event untuk Memuat & Menyimpan Otomatis ke localStorage
+  // 6. Listener Event untuk Memuat & Menyimpan Otomatis ke localStorage
   document.addEventListener("DOMContentLoaded", function() {
     loadSavedInputs();
 
-    // Otomatis simpan saat diketik
     document.getElementById("namaUser")?.addEventListener("input", function(e) {
       localStorage.setItem("saved_namaUser", e.target.value);
     });
