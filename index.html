@@ -27,7 +27,7 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       width: 100%;
-      max-width: 550px;
+      max-width: 680px;
       padding: 28px;
     }
     
@@ -432,12 +432,14 @@
                 <th>Building</th>
                 <th>Floor</th>
                 <th>Room</th>
+                <th>Area</th>
+                <th>Surface</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="roomTableBody">
               <tr>
-                <td colspan="4" class="empty-row">Click Reload List to load data</td>
+                <td colspan="6" class="empty-row">Click Reload List to load data</td>
               </tr>
             </tbody>
           </table>
@@ -795,7 +797,7 @@
       const tableBody = document.getElementById("roomTableBody");
       const activeProject = getSelectedProject();
 
-      tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading data...</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="6" class="empty-row">Loading data...</td></tr>`;
 
       try {
         const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
@@ -809,19 +811,26 @@
               <td>${item.building}</td>
               <td>${item.floor}</td>
               <td>${item.roomID}</td>
+              <td>${item.area || '-'}</td>
+              <td>${item.surface || '-'}</td>
               <td>
-                <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${item.building}', '${item.floor}', '${item.roomID}', '${item.area}', '${item.surface}')">Edit</button>
+                <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${escapeQuotes(item.building)}', '${escapeQuotes(item.floor)}', '${escapeQuotes(item.roomID)}', '${item.area}', '${escapeQuotes(item.surface)}')">Edit</button>
                 <button class="btn-delete" type="button" onclick="deleteRow('${item.rowIndex}')">Delete</button>
               </td>
             `;
             tableBody.appendChild(tr);
           });
         } else {
-          tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
+          tableBody.innerHTML = `<tr><td colspan="6" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
-        tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Failed to load data</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="6" class="empty-row">Failed to load data</td></tr>`;
       }
+    }
+
+    function escapeQuotes(text) {
+      if (!text) return '';
+      return String(text).replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 
     async function deleteRow(rowIndex) {
@@ -875,6 +884,8 @@
       document.getElementById("roomID").value = roomID;
       document.getElementById("area").value = area;
       document.getElementById("surface").value = surface;
+      
+      // Automatic switch to Input Form tab for editing
       switchTab('inputTab');
     }
   </script>
