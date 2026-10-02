@@ -27,7 +27,7 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       width: 100%;
-      max-width: 650px;
+      max-width: 700px;
       padding: 28px;
     }
     
@@ -127,6 +127,13 @@
       height: 70px;
     }
 
+    /* Action Toolbar */
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
     /* Buttons */
     .btn-primary {
       width: 100%;
@@ -165,10 +172,22 @@
       font-weight: 500;
       border-radius: 6px;
       cursor: pointer;
-      margin-bottom: 12px;
     }
     .btn-reload:hover {
       background-color: #1d4ed8;
+    }
+    .btn-copy {
+      background-color: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-copy:hover {
+      background-color: #7c3aed;
     }
     .btn-edit {
       background-color: #eab308;
@@ -366,7 +385,11 @@
           <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
 
           <h3>Registered Room List</h3>
-          <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
+          
+          <div class="action-bar">
+            <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
+            <button type="button" class="btn-copy" onclick="openCopyFloorModal()">Duplicate Floor</button>
+          </div>
 
           <div class="table-responsive">
             <table>
@@ -401,8 +424,9 @@
     let currentUser = "";
     let currentPin  = "";
     let activeEditingRow = null;
+    let availableFloors = [];
 
-    /* --- SweetAlert2 Notification Helper --- */
+    /* --- SweetAlert2 Helper --- */
     function showAlert(title, message, iconType = 'info') {
       Swal.fire({
         title: title,
@@ -636,7 +660,13 @@
 
         if (result.status === "success" && result.data && result.data.length > 0) {
           tableBody.innerHTML = "";
+          
+          // Kumpulkan daftar nama lantai unik
+          const floorsSet = new Set();
+
           result.data.forEach(item => {
+            if (item.floor) floorsSet.add(item.floor);
+
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td>${item.building}</td>
@@ -651,11 +681,94 @@
             `;
             tableBody.appendChild(tr);
           });
+
+          availableFloors = Array.from(floorsSet);
         } else {
+          availableFloors = [];
           tableBody.innerHTML = `<tr><td colspan="6" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
+        availableFloors = [];
         tableBody.innerHTML = `<tr><td colspan="6" class="empty-row">Failed to load data</td></tr>`;
+      }
+    }
+
+    /* --- Fitur Copy / Duplicate Floor --- */
+    async function openCopyFloorModal() {
+      if (availableFloors.length === 0) {
+        showAlert('Warning', 'No floor data available to copy.', 'warning');
+        return;
+      }
+
+      let optionsHtml = availableFloors.map(f => `<option value="${f}">${f}</option>`).join('');
+
+      const { value: formValues } = await Swal.fire({
+        title: 'Duplicate Floor Data',
+        html:
+          `<div style="text-align: left;">` +
+            `<label style="font-size: 13px; font-weight: 600;">Select Source Floor (Copy From):</label>` +
+            `<select id="swalSourceFloor" class="swal2-input" style="width: 100%; margin-top: 5px; margin-bottom: 15px;">` +
+              optionsHtml +
+            `</select>` +
+            `<label style="font-size: 13px; font-weight: 600;">Target Floor Name (Copy To):</label>` +
+            `<input id="swalTargetFloor" class="swal2-input" placeholder="e.g., 2nd Floor / Floor 2" style="width: 100%; margin-top: 5px;">` +
+          `</div>`,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Copy Floor',
+        confirmButtonColor: '#8b5cf6',
+        preConfirm: () => {
+          const sourceFloor = document.getElementById('swalSourceFloor').value;
+          const targetFloor = document.getElementById('swalTargetFloor').value.trim();
+          if (!targetFloor) {
+            Swal.showValidationMessage('Please enter a target floor name');
+            return false;
+          }
+          return { sourceFloor, targetFloor };
+        }
+      });
+
+      if (formValues) {
+        executeCopyFloor(formValues.sourceFloor, formValues.targetFloor);
+      }
+    }
+
+    async function executeCopyFloor(sourceFloor, targetFloor) {
+      const activeProject = getSelectedProject();
+
+      Swal.fire({
+        title: 'Copying Data...',
+        text: `Duplicating rooms from ${sourceFloor} to ${targetFloor}`,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "copyFloor",
+            sourceFloor: sourceFloor,
+            targetFloor: targetFloor,
+            surveyorName: currentUser,
+            userPin: currentPin,
+            newProjectName: activeProject
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          showAlert('Success!', result.message, 'success');
+          fetchRoomData();
+        } else {
+          showAlert('Copy Failed', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection error occurred during floor duplication.', 'error');
       }
     }
 
