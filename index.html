@@ -164,7 +164,6 @@
       margin-bottom: 12px;
     }
 
-    /* Action Badges/Buttons */
     .btn-approve {
       background-color: #16a34a;
       color: white;
@@ -459,6 +458,23 @@
     let adminKey    = "";
     let activeEditingRow = null;
 
+    // FUNGSI UTAMA UNTUK FORMAT SEPARATOR RIBUAN DAN DESIMAL
+    function formatNumberDisplay(val) {
+      if (val === null || val === undefined || val === '') return '-';
+      
+      // Jika string masih dalam bentuk ISO Date (pencegahan tambahan), ambil angka desimalnya
+      let cleanedVal = String(val).replace(',', '.');
+      let num = parseFloat(cleanedVal);
+
+      if (isNaN(num)) return val;
+
+      // Format Angka Indonesia: Titik untuk Ribuan, Koma untuk Desimal
+      return new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      }).format(num);
+    }
+
     function showAlert(title, message, iconType = 'info') {
       Swal.fire({
         title: title,
@@ -501,7 +517,6 @@
         const result = await response.json();
 
         if (result.status === "success") {
-          // Admin Mode Login
           if (result.isAdmin) {
             adminKey = pinVal;
             document.getElementById("loginSection").style.display = "none";
@@ -510,7 +525,6 @@
             return;
           }
 
-          // Regular User Login
           currentUser = userVal;
           currentPin  = pinVal;
 
@@ -531,7 +545,6 @@
       }
     }
 
-    /* --- ADMIN PANEL FUNCTIONS --- */
     function closeAdminPanel() {
       adminKey = "";
       document.getElementById("adminSection").style.display = "none";
@@ -811,7 +824,7 @@
               <td>${item.building}</td>
               <td>${item.floor}</td>
               <td>${item.roomID}</td>
-              <td>${item.area || '-'}</td>
+              <td>${formatNumberDisplay(item.area)}</td>
               <td>${item.surface || '-'}</td>
               <td>
                 <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${escapeQuotes(item.building)}', '${escapeQuotes(item.floor)}', '${escapeQuotes(item.roomID)}', '${item.area}', '${escapeQuotes(item.surface)}')">Edit</button>
@@ -885,7 +898,6 @@
       document.getElementById("area").value = area;
       document.getElementById("surface").value = surface;
       
-      // Automatic switch to Input Form tab for editing
       switchTab('inputTab');
     }
   </script>
