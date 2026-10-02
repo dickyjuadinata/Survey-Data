@@ -513,94 +513,98 @@
       }
     }
 
-    async function loadProjectDropdown() {
-      const dropdown = document.getElementById("projectName");
-      dropdown.innerHTML = `<option value="">Loading projects...</option>`;
+    // Modifikasi fungsi loadProjectDropdown agar bisa menerima parameter proyek yang sedang dipilih
+async function loadProjectDropdown(selectedProjectToKeep = "") {
+  const dropdown = document.getElementById("projectName");
+  dropdown.innerHTML = `<option value="">Loading projects...</option>`;
 
-      try {
-        const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
-        const result = await response.json();
+  try {
+    const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
+    const result = await response.json();
 
-        if (result.status === "success") {
-          dropdown.innerHTML = `<option value="">-- Pilih Project --</option>`;
-          if (result.projects.length === 0) {
-            dropdown.innerHTML = `<option value="">-- Belum ada Project (Ketik Nama Baru) --</option>`;
-          } else {
-            result.projects.forEach(proj => {
-              const opt = document.createElement("option");
-              opt.value = proj;
-              opt.innerText = proj;
-              dropdown.appendChild(opt);
-            });
-          }
-        } else {
-          dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
-        }
-      } catch (err) {
-        dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
-      }
-    }
-
-    function getSelectedProject() {
-      const customProj = document.getElementById("newProjectName").value.trim();
-      const selectProj = document.getElementById("projectName").value.trim();
-
-      if (customProj !== "") return customProj;
-      if (selectProj !== "") return selectProj;
-      return currentUser;
-    }
-
-    async function submitData() {
-      const btnSave = document.getElementById("btnSave");
-      const activeProject = getSelectedProject();
-
-      const payload = {
-        action: activeEditingRow ? "editRow" : "create",
-        rowIndex: activeEditingRow,
-        surveyorName: currentUser,
-        userPin: currentPin,
-        newProjectName: activeProject,
-        building: document.getElementById("building").value,
-        floor: document.getElementById("floor").value,
-        roomID: document.getElementById("roomID").value,
-        area: document.getElementById("area").value,
-        surface: document.getElementById("surface").value,
-        notes: document.getElementById("notes").value
-      };
-
-      try {
-        btnSave.disabled = true;
-        btnSave.innerText = "Saving Data...";
-
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+    if (result.status === "success") {
+      dropdown.innerHTML = `<option value="">-- Pilih Project --</option>`;
+      if (result.projects.length === 0) {
+        dropdown.innerHTML = `<option value="">-- Belum ada Project (Ketik Nama Baru) --</option>`;
+      } else {
+        result.projects.forEach(proj => {
+          const opt = document.createElement("option");
+          opt.value = proj;
+          opt.innerText = proj;
+          dropdown.appendChild(opt);
         });
-
-        const result = await response.json();
-
-        if (result.status === "success") {
-          alert(result.message);
-          activeEditingRow = null;
-
-          document.getElementById("roomID").value = "";
-          document.getElementById("area").value = "";
-          document.getElementById("surface").value = "";
-          document.getElementById("notes").value = "";
-
-          await loadProjectDropdown();
-          fetchRoomData();
-        } else {
-          alert(result.message);
-        }
-      } catch (err) {
-        alert("Terjadi kesalahan koneksi saat menyimpan data.");
-      } finally {
-        btnSave.disabled = false;
-        btnSave.innerText = "Save Room Data";
       }
+
+      // Jika ada project yang harus tetap terpilih, set nilainya di sini
+      if (selectedProjectToKeep) {
+        dropdown.value = selectedProjectToKeep;
+      }
+    } else {
+      dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
     }
+  } catch (err) {
+    dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
+  }
+}
+
+async function submitData() {
+  const btnSave = document.getElementById("btnSave");
+  const activeProject = getSelectedProject();
+
+  const payload = {
+    action: activeEditingRow ? "editRow" : "create",
+    rowIndex: activeEditingRow,
+    surveyorName: currentUser,
+    userPin: currentPin,
+    newProjectName: activeProject,
+    building: document.getElementById("building").value,
+    floor: document.getElementById("floor").value,
+    roomID: document.getElementById("roomID").value,
+    area: document.getElementById("area").value,
+    surface: document.getElementById("surface").value,
+    notes: document.getElementById("notes").value
+  };
+
+  try {
+    btnSave.disabled = true;
+    btnSave.innerText = "Saving Data...";
+
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.status === "success") {
+      alert(result.message);
+      activeEditingRow = null;
+
+      // Reset field input ruangan
+      document.getElementById("roomID").value = "";
+      document.getElementById("area").value = "";
+      document.getElementById("surface").value = "";
+      document.getElementById("notes").value = "";
+
+      // Kosongkan input custom project name agar fokus kembali ke dropdown yang dipilih
+      document.getElementById("newProjectName").value = "";
+
+      // Reload dropdown dan set nilai ke project yang sedang aktif
+      await loadProjectDropdown(activeProject);
+      
+      // Ambil ulang data daftar ruangan untuk project aktif tersebut
+      fetchRoomData();
+    } else {
+      alert(result.message);
+    }
+  } catch (err) {
+    alert("Terjadi kesalahan koneksi saat menyimpan data.");
+  } finally {
+    btnSave.disabled = false;
+    btnSave.innerText = "Save Room Data";
+  }
+}
 
     async function fetchRoomData() {
       const tableBody = document.getElementById("roomTableBody");
