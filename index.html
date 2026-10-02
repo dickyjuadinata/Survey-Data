@@ -27,7 +27,7 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       width: 100%;
-      max-width: 850px;
+      max-width: 880px;
       padding: 28px;
     }
     
@@ -160,6 +160,7 @@
       display: flex;
       gap: 8px;
       margin-bottom: 12px;
+      flex-wrap: wrap;
     }
     .btn-reload {
       background-color: #2563eb;
@@ -173,6 +174,19 @@
     }
     .btn-reload:hover {
       background-color: #1d4ed8;
+    }
+    .btn-duplicate-main {
+      background-color: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-duplicate-main:hover {
+      background-color: #7c3aed;
     }
     .btn-download {
       background-color: #059669;
@@ -199,19 +213,6 @@
     }
     .btn-edit:hover {
       background-color: #ca8a04;
-    }
-    .btn-duplicate {
-      background-color: #8b5cf6;
-      color: white;
-      border: none;
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      margin-right: 4px;
-    }
-    .btn-duplicate:hover {
-      background-color: #7c3aed;
     }
     .btn-delete {
       background-color: #ef4444;
@@ -260,6 +261,17 @@
     }
     .forgot-link:hover {
       text-decoration: underline;
+    }
+    
+    /* Checkbox Alignment */
+    .center-col {
+      text-align: center;
+      width: 40px;
+    }
+    .center-col input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -405,6 +417,7 @@
           
           <div class="action-toolbar">
             <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
+            <button type="button" class="btn-duplicate-main" onclick="duplicateSelectedRooms()">Duplicate Selected</button>
             <button type="button" class="btn-download" onclick="downloadSheet()">Download Sheet (XLSX)</button>
           </div>
 
@@ -412,18 +425,19 @@
             <table>
               <thead>
                 <tr>
+                  <th class="center-col"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"></th>
                   <th>Building</th>
                   <th>Floor</th>
                   <th>Room ID / Name</th>
                   <th>Area (m²)</th>
                   <th>Surface Type</th>
                   <th>Notes / Remarks</th>
-                  <th style="min-width: 180px;">Actions</th>
+                  <th style="min-width: 110px;">Actions</th>
                 </tr>
               </thead>
               <tbody id="roomTableBody">
                 <tr>
-                  <td colspan="7" class="empty-row">Click Reload List to load data</td>
+                  <td colspan="8" class="empty-row">Click Reload List to load data</td>
                 </tr>
               </tbody>
             </table>
@@ -443,7 +457,6 @@
     let currentPin  = "";
     let activeEditingRow = null;
 
-    /* Helper untuk Meloloskan Karakter Khusus pada HTML Attributes */
     function escapeHtml(text) {
       if (!text) return "";
       return String(text)
@@ -454,7 +467,6 @@
         .replace(/>/g, "&gt;");
     }
 
-    /* --- SweetAlert2 Notification Helper --- */
     function showAlert(title, message, iconType = 'info') {
       Swal.fire({
         title: title,
@@ -676,11 +688,19 @@
       }
     }
 
+    /* PENGATURAN CHECKBOX SELECT ALL */
+    function toggleSelectAll(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.row-checkbox');
+      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    }
+
     async function fetchRoomData() {
       const tableBody = document.getElementById("roomTableBody");
-      const activeProject = getSelectedProject();
+      const selectAllCb = document.getElementById("selectAllCheckbox");
+      if (selectAllCb) selectAllCb.checked = false;
 
-      tableBody.innerHTML = `<tr><td colspan="7" class="empty-row">Loading data...</td></tr>`;
+      const activeProject = getSelectedProject();
+      tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
 
       try {
         const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
@@ -699,6 +719,7 @@
             const escNotes    = escapeHtml(item.notes);
 
             tr.innerHTML = `
+              <td class="center-col"><input type="checkbox" class="row-checkbox" value="${item.rowIndex}"></td>
               <td>${item.building}</td>
               <td>${item.floor}</td>
               <td>${item.roomID}</td>
@@ -707,28 +728,37 @@
               <td>${item.notes || "-"}</td>
               <td>
                 <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${escBuilding}', '${escFloor}', '${escRoomID}', '${escArea}', '${escSurface}', '${escNotes}')">Edit</button>
-                <button class="btn-duplicate" type="button" onclick="duplicateSingleRoom('${item.rowIndex}', '${escRoomID}', '${escFloor}')">Duplicate</button>
                 <button class="btn-delete" type="button" onclick="deleteRow('${item.rowIndex}')">Delete</button>
               </td>
             `;
             tableBody.appendChild(tr);
           });
         } else {
-          tableBody.innerHTML = `<tr><td colspan="7" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
+          tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
-        tableBody.innerHTML = `<tr><td colspan="7" class="empty-row">Failed to load data</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Failed to load data</td></tr>`;
       }
     }
 
-    async function duplicateSingleRoom(rowIndex, roomName, currentFloor) {
+    /* FITUR DUPLICATE MULTIPLE SELECTED */
+    async function duplicateSelectedRooms() {
+      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+      
+      if (selectedCheckboxes.length === 0) {
+        showAlert('Warning', 'Please select at least one room to duplicate using the checkbox!', 'warning');
+        return;
+      }
+
+      const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
+
       const { value: targetFloor } = await Swal.fire({
-        title: `Duplicate "${roomName}"`,
-        text: `Current floor: ${currentFloor}. Enter target floor name:`,
+        title: `Duplicate ${selectedRows.length} Room(s)`,
+        text: 'Enter target floor name for the duplicated room(s):',
         input: 'text',
         inputPlaceholder: 'e.g., 2nd Floor / Floor 2',
         showCancelButton: true,
-        confirmButtonText: 'Duplicate Room',
+        confirmButtonText: 'Duplicate Rooms',
         confirmButtonColor: '#8b5cf6',
         cancelButtonColor: '#6b7280',
         inputValidator: (value) => {
@@ -742,7 +772,7 @@
         const activeProject = getSelectedProject();
 
         Swal.fire({
-          title: 'Duplicating Room...',
+          title: 'Duplicating Rooms...',
           allowOutsideClick: false,
           didOpen: () => { Swal.showLoading(); }
         });
@@ -752,8 +782,8 @@
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
-              action: "duplicateRow",
-              rowIndex: rowIndex,
+              action: "duplicateSelected",
+              selectedRows: selectedRows,
               targetFloor: targetFloor.trim(),
               surveyorName: currentUser,
               userPin: currentPin,
