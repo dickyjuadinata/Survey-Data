@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Room Data Form</title>
+  <title>Room Data System</title>
   <style>
     * {
       box-sizing: border-box;
@@ -15,21 +15,54 @@
       padding: 20px;
       display: flex;
       justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
     .container {
       background-color: #ffffff;
       border-radius: 12px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       width: 100%;
-      max-width: 600px;
-      padding: 24px;
+      max-width: 500px;
+      padding: 28px;
     }
-    h2 {
-      text-align: center;
-      margin-top: 0;
+    
+    /* Header Section */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 20px;
-      color: #111827;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 12px;
     }
+    .header-bar h3 {
+      margin: 0;
+      color: #111827;
+      font-size: 18px;
+    }
+    .user-badge {
+      font-size: 12px;
+      background-color: #ecfdf5;
+      color: #047857;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .btn-logout {
+      background-color: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-logout:hover {
+      background-color: #e5e7eb;
+    }
+
+    /* Tab Style */
     .tab-nav {
       display: flex;
       border-bottom: 2px solid #e5e7eb;
@@ -58,6 +91,8 @@
     .tab-content.active {
       display: block;
     }
+
+    /* Form & Input */
     .form-group {
       margin-bottom: 16px;
     }
@@ -87,7 +122,9 @@
       resize: vertical;
       height: 70px;
     }
-    .btn-submit {
+
+    /* Buttons */
+    .btn-primary {
       width: 100%;
       background-color: #16a34a;
       color: white;
@@ -97,10 +134,10 @@
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
-      margin-top: 20px;
+      margin-top: 10px;
       transition: background-color 0.2s;
     }
-    .btn-submit:hover {
+    .btn-primary:hover {
       background-color: #15803d;
     }
     .btn-reload {
@@ -136,6 +173,8 @@
       cursor: pointer;
       font-size: 12px;
     }
+
+    /* Table */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -155,125 +194,213 @@
       text-align: center;
       color: #6b7280;
     }
+    .hint-text {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <h2>Room Data Form</h2>
+    
+    <!-- HALAMAN LOGIN -->
+    <div id="loginSection">
+      <h2 style="text-align: center; margin-top: 0; color: #111827;">System Login</h2>
+      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 24px;">Masukkan nama surveyor dan PIN untuk mengakses form.</p>
+      
+      <form onsubmit="event.preventDefault(); handleLogin();">
+        <div class="form-group">
+          <label for="loginUser">User / Surveyor Name</label>
+          <input type="text" id="loginUser" placeholder="Contoh: Dicky" required>
+        </div>
 
-    <div class="tab-nav">
-      <button class="tab-btn active" onclick="switchTab('inputTab')">Input Form</button>
-      <button class="tab-btn" onclick="switchTab('listTab')">Room List & Config</button>
+        <div class="form-group">
+          <label for="loginPin">PIN / Password</label>
+          <input type="password" id="loginPin" placeholder="Masukkan 4-6 angka" required>
+          <div class="hint-text">Jika baru pertama kali, PIN ini akan otomatis didaftarkan.</div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="btnLogin">Login System</button>
+      </form>
     </div>
 
-    <form id="roomForm" onsubmit="event.preventDefault(); submitData();">
+    <!-- DASHBOARD UTAMA (FORM & APP) -->
+    <div id="appSection" style="display: none;">
       
-      <!-- TAB 1: INPUT FORM -->
-      <div id="inputTab" class="tab-content active">
-        <div class="form-group">
-          <label for="building">Building</label>
-          <input type="text" id="building" placeholder="Contoh: main" required>
+      <div class="header-bar">
+        <div>
+          <h3>Room Data Form</h3>
+          <span class="user-badge" id="displayUser">User: -</span>
         </div>
-
-        <div class="form-group">
-          <label for="floor">Floor</label>
-          <input type="text" id="floor" placeholder="Contoh: ground" required>
-        </div>
-
-        <div class="form-group">
-          <label for="roomID">Room ID / Room Name</label>
-          <input type="text" id="roomID" placeholder="Contoh: lobby" required>
-        </div>
-
-        <div class="form-group">
-          <label for="area">Area (m2)</label>
-          <input type="number" id="area" placeholder="Contoh: 100" step="any" required>
-        </div>
-
-        <div class="form-group">
-          <label for="surface">Surface Type</label>
-          <input type="text" id="surface" list="surfaceOptions" placeholder="Ketik jenis surface..." required autocomplete="off">
-          <datalist id="surfaceOptions">
-            <option value="Ceramic"></option>
-            <option value="Carpet"></option>
-            <option value="Terazzo"></option>
-            <option value="Marble"></option>
-            <option value="Granite"></option>
-            <option value="Terracotta"></option>
-            <option value="Vinyl"></option>
-            <option value="Rubber"></option>
-            <option value="Soil"></option>
-            <option value="Con block"></option>
-            <option value="Asphalt"></option>
-            <option value="Parquete"></option>
-            <option value="Epoxy"></option>
-            <option value="Metal"></option>
-            <option value="Stone"></option>
-            <option value="Cement/ Concrete"></option>
-          </datalist>
-        </div>
-
-        <div class="form-group">
-          <label for="notes">Notes / Remarks</label>
-          <textarea id="notes" placeholder="Surface condition, color, etc."></textarea>
-        </div>
-
-        <button type="submit" class="btn-submit" id="btnSave">Save Room Data</button>
+        <button class="btn-logout" onclick="handleLogout()">Logout</button>
       </div>
 
-      <!-- TAB 2: CONFIG & ROOM LIST -->
-      <div id="listTab" class="tab-content">
-        <div class="form-group">
-          <label for="surveyorName">User / Surveyor Name</label>
-          <input type="text" id="surveyorName" placeholder="Contoh: Dicky" required>
-        </div>
-
-        <div class="form-group">
-          <label for="userPin">Password / PIN User</label>
-          <input type="password" id="userPin" placeholder="Masukkan PIN (4-6 angka)" required onchange="loadProjectDropdown()">
-        </div>
-
-        <div class="form-group">
-          <label for="projectName">Project Name (Select Existing)</label>
-          <select id="projectName">
-            <option value="">-- Masukkan User & PIN Terlebih Dahulu --</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="newProjectName">Custom / New Project Name</label>
-          <input type="text" id="newProjectName" placeholder="Contoh: Project Baru">
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-
-        <h3>Registered Room List</h3>
-        <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Building</th>
-              <th>Floor</th>
-              <th>Room</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="roomTableBody">
-            <tr>
-              <td colspan="4" class="empty-row">Klik Reload List untuk memuat data</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('inputTab')">Input Form</button>
+        <button class="tab-btn" onclick="switchTab('listTab')">Room List & Config</button>
       </div>
 
-    </form>
+      <form id="roomForm" onsubmit="event.preventDefault(); submitData();">
+        
+        <!-- TAB 1: FORM INPUT -->
+        <div id="inputTab" class="tab-content active">
+          <div class="form-group">
+            <label for="building">Building</label>
+            <input type="text" id="building" placeholder="Contoh: main" required>
+          </div>
+
+          <div class="form-group">
+            <label for="floor">Floor</label>
+            <input type="text" id="floor" placeholder="Contoh: ground" required>
+          </div>
+
+          <div class="form-group">
+            <label for="roomID">Room ID / Room Name</label>
+            <input type="text" id="roomID" placeholder="Contoh: lobby" required>
+          </div>
+
+          <div class="form-group">
+            <label for="area">Area (m2)</label>
+            <input type="number" id="area" placeholder="Contoh: 100" step="any" required>
+          </div>
+
+          <div class="form-group">
+            <label for="surface">Surface Type</label>
+            <input type="text" id="surface" list="surfaceOptions" placeholder="Ketik jenis surface..." required autocomplete="off">
+            <datalist id="surfaceOptions">
+              <option value="Ceramic"></option>
+              <option value="Carpet"></option>
+              <option value="Terazzo"></option>
+              <option value="Marble"></option>
+              <option value="Granite"></option>
+              <option value="Terracotta"></option>
+              <option value="Vinyl"></option>
+              <option value="Rubber"></option>
+              <option value="Soil"></option>
+              <option value="Con block"></option>
+              <option value="Asphalt"></option>
+              <option value="Parquete"></option>
+              <option value="Epoxy"></option>
+              <option value="Metal"></option>
+              <option value="Stone"></option>
+              <option value="Cement/ Concrete"></option>
+            </datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="notes">Notes / Remarks</label>
+            <textarea id="notes" placeholder="Surface condition, color, etc."></textarea>
+          </div>
+
+          <button type="submit" class="btn-primary" id="btnSave">Save Room Data</button>
+        </div>
+
+        <!-- TAB 2: CONFIG & ROOM LIST -->
+        <div id="listTab" class="tab-content">
+          <div class="form-group">
+            <label for="projectName">Project Name (Select Existing)</label>
+            <select id="projectName" onchange="fetchRoomData()">
+              <option value="">-- Pilih Project --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="newProjectName">Custom / New Project Name</label>
+            <input type="text" id="newProjectName" placeholder="Contoh: Project Baru">
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+
+          <h3>Registered Room List</h3>
+          <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Building</th>
+                <th>Floor</th>
+                <th>Room</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="roomTableBody">
+              <tr>
+                <td colspan="4" class="empty-row">Klik Reload List untuk memuat data</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </form>
+
+    </div>
+
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYOUR_DEPLOYMENT_ID_HERE/exec";
+    
+    let currentUser = "";
+    let currentPin  = "";
     let activeEditingRow = null;
+
+    async function handleLogin() {
+      const userVal = document.getElementById("loginUser").value.trim();
+      const pinVal  = document.getElementById("loginPin").value.trim();
+      const btn     = document.getElementById("btnLogin");
+
+      if (!userVal || !pinVal) {
+        alert("Nama User dan PIN wajib diisi!");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = "Authenticating...";
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "login",
+            surveyorName: userVal,
+            userPin: pinVal
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          currentUser = userVal;
+          currentPin  = pinVal;
+
+          document.getElementById("displayUser").innerText = "User: " + currentUser;
+          document.getElementById("loginSection").style.display = "none";
+          document.getElementById("appSection").style.display = "block";
+
+          await loadProjectDropdown();
+          fetchRoomData();
+        } else {
+          alert(result.message);
+        }
+      } catch (err) {
+        alert("Gagal terhubung ke server login.");
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Login System";
+      }
+    }
+
+    function handleLogout() {
+      currentUser = "";
+      currentPin  = "";
+      document.getElementById("loginUser").value = "";
+      document.getElementById("loginPin").value = "";
+      document.getElementById("appSection").style.display = "none";
+      document.getElementById("loginSection").style.display = "block";
+    }
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -288,25 +415,17 @@
     }
 
     async function loadProjectDropdown() {
-      const surveyor = document.getElementById("surveyorName").value.trim();
-      const pin      = document.getElementById("userPin").value.trim();
       const dropdown = document.getElementById("projectName");
-
-      if (!surveyor || !pin) {
-        dropdown.innerHTML = `<option value="">-- Masukkan User & PIN Terlebih Dahulu --</option>`;
-        return;
-      }
-
       dropdown.innerHTML = `<option value="">Loading projects...</option>`;
 
       try {
-        const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(surveyor)}&userPin=${encodeURIComponent(pin)}`);
+        const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
         const result = await response.json();
 
         if (result.status === "success") {
           dropdown.innerHTML = `<option value="">-- Pilih Project --</option>`;
           if (result.projects.length === 0) {
-            dropdown.innerHTML = `<option value="">-- Belum ada Project (Buat Baru) --</option>`;
+            dropdown.innerHTML = `<option value="">-- Belum ada Project (Ketik Nama Baru) --</option>`;
           } else {
             result.projects.forEach(proj => {
               const opt = document.createElement("option");
@@ -316,42 +435,31 @@
             });
           }
         } else {
-          alert(result.message);
-          dropdown.innerHTML = `<option value="">PIN Salah atau Akses Ditolak</option>`;
+          dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
         }
       } catch (err) {
-        dropdown.innerHTML = `<option value="">Gagal memuat proyek</option>`;
+        dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
       }
     }
 
     function getSelectedProject() {
       const customProj = document.getElementById("newProjectName").value.trim();
       const selectProj = document.getElementById("projectName").value.trim();
-      const surveyor   = document.getElementById("surveyorName").value.trim();
 
       if (customProj !== "") return customProj;
       if (selectProj !== "") return selectProj;
-      return surveyor !== "" ? surveyor : "Default";
+      return currentUser;
     }
 
     async function submitData() {
       const btnSave = document.getElementById("btnSave");
-      const surveyor = document.getElementById("surveyorName").value.trim();
-      const pin      = document.getElementById("userPin").value.trim();
-
-      if (!surveyor || !pin) {
-        alert("Nama User dan PIN wajib diisi di Tab 'Room List & Config'");
-        switchTab('listTab');
-        return;
-      }
-
       const activeProject = getSelectedProject();
 
       const payload = {
         action: activeEditingRow ? "editRow" : "create",
         rowIndex: activeEditingRow,
-        surveyorName: surveyor,
-        userPin: pin,
+        surveyorName: currentUser,
+        userPin: currentPin,
         newProjectName: activeProject,
         building: document.getElementById("building").value,
         floor: document.getElementById("floor").value,
@@ -377,11 +485,13 @@
           alert(result.message);
           activeEditingRow = null;
 
+          // Bersihkan kolom yang perlu di-reset
           document.getElementById("roomID").value = "";
           document.getElementById("area").value = "";
           document.getElementById("surface").value = "";
           document.getElementById("notes").value = "";
 
+          await loadProjectDropdown();
           fetchRoomData();
         } else {
           alert(result.message);
@@ -396,19 +506,12 @@
 
     async function fetchRoomData() {
       const tableBody = document.getElementById("roomTableBody");
-      const surveyor = document.getElementById("surveyorName").value.trim();
-      const pin      = document.getElementById("userPin").value.trim();
       const activeProject = getSelectedProject();
-
-      if (!surveyor || !pin) {
-        alert("Isi Nama User dan PIN terlebih dahulu.");
-        return;
-      }
 
       tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading data...</td></tr>`;
 
       try {
-        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(surveyor)}&userPin=${encodeURIComponent(pin)}`);
+        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
         const result = await response.json();
 
         if (result.status === "success" && result.data && result.data.length > 0) {
@@ -427,7 +530,7 @@
             tableBody.appendChild(tr);
           });
         } else {
-          tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Data tidak ditemukan pada proyek "${activeProject}"</td></tr>`;
+          tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Data tidak ditemukan pada project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
         tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Gagal memuat data</td></tr>`;
@@ -437,15 +540,13 @@
     async function deleteRow(rowIndex) {
       if (!confirm("Apakah Anda yakin ingin menghapus data ruangan ini?")) return;
 
-      const surveyor = document.getElementById("surveyorName").value.trim();
-      const pin      = document.getElementById("userPin").value.trim();
       const activeProject = getSelectedProject();
 
       const payload = {
         action: "deleteRow",
         rowIndex: rowIndex,
-        surveyorName: surveyor,
-        userPin: pin,
+        surveyorName: currentUser,
+        userPin: currentPin,
         newProjectName: activeProject
       };
 
