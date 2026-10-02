@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Room Data System</title>
 
-  <!-- SweetAlert2 CSS & JS (Popup Modern) -->
+  <!-- SweetAlert2 CSS & JS (Modern Popups) -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
@@ -228,54 +228,54 @@
 
   <div class="container">
     
-    <!-- FORM LOGIN -->
+    <!-- LOGIN FORM -->
     <div id="loginSection">
       <h2 style="text-align: center; margin-top: 0; color: #111827;">System Login</h2>
-      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 24px;">Masukkan nama surveyor dan PIN untuk mengakses form.</p>
+      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 24px;">Enter your surveyor name and PIN to access the form.</p>
       
       <form onsubmit="event.preventDefault(); handleLogin();">
         <div class="form-group">
           <label for="loginUser">User / Surveyor Name</label>
-          <input type="text" id="loginUser" placeholder="Contoh: Dicky" required>
+          <input type="text" id="loginUser" placeholder="e.g. John Doe" required>
         </div>
 
         <div class="form-group">
           <label for="loginPin">PIN / Password</label>
-          <input type="password" id="loginPin" placeholder="Masukkan 4-6 angka" required>
-          <a class="forgot-link" onclick="toggleForgotForm(true)">Lupa PIN / Password?</a>
+          <input type="password" id="loginPin" placeholder="Enter 4-6 digits" required>
+          <a class="forgot-link" onclick="toggleForgotForm(true)">Forgot PIN / Password?</a>
         </div>
 
-        <button type="submit" class="btn-primary" id="btnLogin">Login System</button>
+        <button type="submit" class="btn-primary" id="btnLogin">Log In</button>
       </form>
     </div>
 
-    <!-- FORM RESET PIN (LUPA PASSWORD) -->
+    <!-- RESET PIN FORM (FORGOT PASSWORD) -->
     <div id="forgotSection" style="display: none;">
       <h2 style="text-align: center; margin-top: 0; color: #111827;">Reset PIN / Password</h2>
-      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 20px;">Minta <b>Master Key Admin</b> kepada Administrator untuk mengubah PIN Anda.</p>
+      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 20px;">Request the <b>Admin Master Key</b> from your Administrator to reset your PIN.</p>
       
       <form onsubmit="event.preventDefault(); handleResetPin();">
         <div class="form-group">
           <label for="resetUser">User / Surveyor Name</label>
-          <input type="text" id="resetUser" placeholder="Nama user Anda" required>
+          <input type="text" id="resetUser" placeholder="Your username" required>
         </div>
 
         <div class="form-group">
-          <label for="resetNewPin">PIN Baru</label>
-          <input type="password" id="resetNewPin" placeholder="Masukkan PIN baru" required>
+          <label for="resetNewPin">New PIN</label>
+          <input type="password" id="resetNewPin" placeholder="Enter new PIN" required>
         </div>
 
         <div class="form-group">
-          <label for="resetMasterKey">Master Reset Key (Kunci Admin)</label>
-          <input type="password" id="resetMasterKey" placeholder="Kunci Rahasia Admin" required>
+          <label for="resetMasterKey">Master Reset Key (Admin Key)</label>
+          <input type="password" id="resetMasterKey" placeholder="Admin secret key" required>
         </div>
 
         <button type="submit" class="btn-primary" id="btnReset">Reset Password</button>
-        <button type="button" class="btn-secondary" onclick="toggleForgotForm(false)">Batal / Kembali ke Login</button>
+        <button type="button" class="btn-secondary" onclick="toggleForgotForm(false)">Cancel / Back to Login</button>
       </form>
     </div>
 
-    <!-- DASHBOARD UTAMA -->
+    <!-- MAIN DASHBOARD -->
     <div id="appSection" style="display: none;">
       
       <div class="header-bar">
@@ -283,7 +283,7 @@
           <h3>Room Data Form</h3>
           <span class="user-badge" id="displayUser">User: -</span>
         </div>
-        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+        <button class="btn-logout" onclick="handleLogout()">Log Out</button>
       </div>
 
       <div class="tab-nav">
@@ -293,35 +293,35 @@
 
       <form id="roomForm" onsubmit="event.preventDefault(); submitData();">
         
-        <!-- TAB 1: FORM INPUT -->
+        <!-- TAB 1: INPUT FORM -->
         <div id="inputTab" class="tab-content active">
           <div class="form-group">
             <label for="building">Building</label>
-            <input type="text" id="building" placeholder="Contoh: main" required>
+            <input type="text" id="building" placeholder="e.g. Main" required>
           </div>
 
           <div class="form-group">
             <label for="floor">Floor</label>
-            <input type="text" id="floor" placeholder="Contoh: ground" required>
+            <input type="text" id="floor" placeholder="e.g. Ground" required>
           </div>
 
           <div class="form-group">
             <label for="roomID">Room ID / Room Name</label>
-            <input type="text" id="roomID" placeholder="Contoh: lobby" required>
+            <input type="text" id="roomID" placeholder="e.g. Lobby" required>
           </div>
 
           <div class="form-group">
-            <label for="area">Area (m2)</label>
-            <input type="number" id="area" placeholder="Contoh: 100" step="any" required>
+            <label for="area">Area (sqm)</label>
+            <input type="number" id="area" placeholder="e.g. 100" step="any" required>
           </div>
 
           <div class="form-group">
             <label for="surface">Surface Type</label>
-            <input type="text" id="surface" list="surfaceOptions" placeholder="Ketik jenis surface..." required autocomplete="off">
+            <input type="text" id="surface" list="surfaceOptions" placeholder="Type surface type..." required autocomplete="off">
             <datalist id="surfaceOptions">
               <option value="Ceramic"></option>
               <option value="Carpet"></option>
-              <option value="Terazzo"></option>
+              <option value="Terrazzo"></option>
               <option value="Marble"></option>
               <option value="Granite"></option>
               <option value="Terracotta"></option>
@@ -330,11 +330,11 @@
               <option value="Soil"></option>
               <option value="Con block"></option>
               <option value="Asphalt"></option>
-              <option value="Parquete"></option>
+              <option value="Parquet"></option>
               <option value="Epoxy"></option>
               <option value="Metal"></option>
               <option value="Stone"></option>
-              <option value="Cement/ Concrete"></option>
+              <option value="Cement / Concrete"></option>
             </datalist>
           </div>
 
@@ -351,13 +351,13 @@
           <div class="form-group">
             <label for="projectName">Project Name (Select Existing)</label>
             <select id="projectName" onchange="fetchRoomData()">
-              <option value="">-- Pilih Project --</option>
+              <option value="">-- Select Project --</option>
             </select>
           </div>
 
           <div class="form-group">
             <label for="newProjectName">Custom / New Project Name</label>
-            <input type="text" id="newProjectName" placeholder="Contoh: Project Baru">
+            <input type="text" id="newProjectName" placeholder="e.g. New Project">
           </div>
 
           <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
@@ -376,7 +376,7 @@
             </thead>
             <tbody id="roomTableBody">
               <tr>
-                <td colspan="4" class="empty-row">Klik Reload List untuk memuat data</td>
+                <td colspan="4" class="empty-row">Click Reload List to load data</td>
               </tr>
             </tbody>
           </table>
@@ -395,7 +395,7 @@
     let currentPin  = "";
     let activeEditingRow = null;
 
-    /* --- Helper Notifikasi Popup Modern (SweetAlert2) --- */
+    /* --- Modern Popup Helper (SweetAlert2) --- */
     function showAlert(title, message, iconType = 'info') {
       Swal.fire({
         title: title,
@@ -417,7 +417,7 @@
       const btn     = document.getElementById("btnLogin");
 
       if (!userVal || !pinVal) {
-        showAlert('Perhatian', 'Nama User dan PIN wajib diisi!', 'warning');
+        showAlert('Warning', 'Username and PIN are required!', 'warning');
         return;
       }
 
@@ -448,13 +448,13 @@
           await loadProjectDropdown();
           fetchRoomData();
         } else {
-          showAlert('Login Gagal', result.message, 'error');
+          showAlert('Login Failed', result.message, 'error');
         }
       } catch (err) {
-        showAlert('Error', 'Gagal terhubung ke server login.', 'error');
+        showAlert('Error', 'Failed to connect to login server.', 'error');
       } finally {
         btn.disabled = false;
-        btn.innerText = "Login System";
+        btn.innerText = "Log In";
       }
     }
 
@@ -465,7 +465,7 @@
       const btn       = document.getElementById("btnReset");
 
       if (!userVal || !newPin || !masterKey) {
-        showAlert('Perhatian', 'Semua field reset password wajib diisi!', 'warning');
+        showAlert('Warning', 'All password reset fields are required!', 'warning');
         return;
       }
 
@@ -487,15 +487,15 @@
         const result = await response.json();
 
         if (result.status === "success") {
-          showAlert('Berhasil', result.message, 'success');
+          showAlert('Success', result.message, 'success');
           toggleForgotForm(false);
           document.getElementById("loginUser").value = userVal;
           document.getElementById("loginPin").value = newPin;
         } else {
-          showAlert('Gagal Reset', result.message, 'error');
+          showAlert('Reset Failed', result.message, 'error');
         }
       } catch (err) {
-        showAlert('Error', 'Gagal menghubungi server untuk reset password.', 'error');
+        showAlert('Error', 'Failed to reach server for password reset.', 'error');
       } finally {
         btn.disabled = false;
         btn.innerText = "Reset Password";
@@ -532,9 +532,9 @@
         const result = await response.json();
 
         if (result.status === "success") {
-          dropdown.innerHTML = `<option value="">-- Pilih Project --</option>`;
+          dropdown.innerHTML = `<option value="">-- Select Project --</option>`;
           if (result.projects.length === 0) {
-            dropdown.innerHTML = `<option value="">-- Belum ada Project (Ketik Nama Baru) --</option>`;
+            dropdown.innerHTML = `<option value="">-- No Projects Found (Type New Name) --</option>`;
           } else {
             result.projects.forEach(proj => {
               const opt = document.createElement("option");
@@ -544,15 +544,15 @@
             });
           }
 
-          // Menjaga agar project terpilih tetap aktif
+          // Retain active selected project
           if (selectedProjectToKeep) {
             dropdown.value = selectedProjectToKeep;
           }
         } else {
-          dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
+          dropdown.innerHTML = `<option value="">Failed to load projects</option>`;
         }
       } catch (err) {
-        dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
+        dropdown.innerHTML = `<option value="">Failed to load projects</option>`;
       }
     }
 
@@ -596,24 +596,24 @@
         const result = await response.json();
 
         if (result.status === "success") {
-          showAlert('Berhasil!', result.message, 'success');
+          showAlert('Success!', result.message, 'success');
           activeEditingRow = null;
 
-          // Reset field input
+          // Reset input fields
           document.getElementById("roomID").value = "";
           document.getElementById("area").value = "";
           document.getElementById("surface").value = "";
           document.getElementById("notes").value = "";
           document.getElementById("newProjectName").value = "";
 
-          // Pertahankan project aktif di dropdown & muat ulang tabel
+          // Retain active project in dropdown & refresh list
           await loadProjectDropdown(activeProject);
           fetchRoomData();
         } else {
-          showAlert('Gagal Menyimpan', result.message, 'error');
+          showAlert('Save Failed', result.message, 'error');
         }
       } catch (err) {
-        showAlert('Error', 'Terjadi kesalahan koneksi saat menyimpan data.', 'error');
+        showAlert('Error', 'Connection error while saving data.', 'error');
       } finally {
         btnSave.disabled = false;
         btnSave.innerText = "Save Room Data";
@@ -646,24 +646,24 @@
             tableBody.appendChild(tr);
           });
         } else {
-          tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Data tidak ditemukan pada project "${activeProject}"</td></tr>`;
+          tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
-        tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Gagal memuat data</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Failed to load data</td></tr>`;
       }
     }
 
     async function deleteRow(rowIndex) {
-      // Konfirmasi Hapus Data Modern dengan SweetAlert2
+      // Modern Delete Confirmation Modal with SweetAlert2
       const confirmResult = await Swal.fire({
-        title: 'Hapus Data?',
-        text: 'Apakah Anda yakin ingin menghapus data ruangan ini?',
+        title: 'Delete Data?',
+        text: 'Are you sure you want to delete this room record?',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Ya, Hapus!',
-        cancelButtonText: 'Batal'
+        confirmButtonText: 'Yes, Delete!',
+        cancelButtonText: 'Cancel'
       });
 
       if (!confirmResult.isConfirmed) return;
@@ -688,13 +688,13 @@
         const result = await response.json();
 
         if (result.status === "success") {
-          showAlert('Terhapus!', 'Data berhasil dihapus.', 'success');
+          showAlert('Deleted!', 'Data deleted successfully.', 'success');
           fetchRoomData();
         } else {
-          showAlert('Gagal Hapus', result.message, 'error');
+          showAlert('Delete Failed', result.message, 'error');
         }
       } catch (err) {
-        showAlert('Error', 'Terjadi kesalahan koneksi.', 'error');
+        showAlert('Error', 'Connection error occurred.', 'error');
       }
     }
 
