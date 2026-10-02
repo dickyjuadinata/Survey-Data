@@ -362,17 +362,17 @@
 
           <div class="form-group">
             <label for="floor">Floor</label>
-            <input type="text" id="floor" placeholder="e.g. Ground Floor" required>
+            <input type="text" id="floor" placeholder="e.g. Outdoor" required>
           </div>
 
           <div class="form-group">
             <label for="roomID">Room ID / Room Name</label>
-            <input type="text" id="roomID" placeholder="e.g. Lobby" required>
+            <input type="text" id="roomID" placeholder="e.g. Smoking" required>
           </div>
 
           <div class="form-group">
             <label for="area">Area (sqm)</label>
-            <input type="number" id="area" placeholder="e.g. 35000 or 4.3" step="any" required>
+            <input type="number" id="area" placeholder="e.g. 10.5" step="any" required>
           </div>
 
           <div class="form-group">
@@ -451,7 +451,7 @@
   </div>
 
   <script>
-    // PERBARUI DENGAN URL DEPLOYMENT WEB APP ANDA
+    // MASUKKAN URL DEPLOYMENT WEB APP GOOGLE APPS SCRIPT ANDA
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
     
     let currentUser = "";
@@ -836,7 +836,7 @@
               <td>${formatNumberDisplay(item.area)}</td>
               <td>${item.surface || '-'}</td>
               <td>
-                <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${escapeQuotes(item.building)}', '${escapeQuotes(item.floor)}', '${escapeQuotes(item.roomID)}', '${item.area}', '${escapeQuotes(item.surface)}')">Edit</button>
+                <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${escapeQuotes(item.building)}', '${escapeQuotes(item.floor)}', '${escapeQuotes(item.roomID)}', '${item.area}', '${escapeQuotes(item.surface)}', '${escapeQuotes(item.notes)}')">Edit</button>
                 <button class="btn-delete" type="button" onclick="deleteRow('${item.rowIndex}')">Delete</button>
               </td>
             `;
@@ -898,13 +898,14 @@
       }
     }
 
-    function editRow(rowIndex, building, floor, roomID, area, surface) {
+    function editRow(rowIndex, building, floor, roomID, area, surface, notes) {
       activeEditingRow = rowIndex;
       document.getElementById("building").value = building;
       document.getElementById("floor").value = floor;
       document.getElementById("roomID").value = roomID;
       document.getElementById("area").value = area;
       document.getElementById("surface").value = surface;
+      document.getElementById("notes").value = notes || '';
       
       switchTab('inputTab');
     }
