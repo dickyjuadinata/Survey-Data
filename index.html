@@ -451,6 +451,7 @@
   </div>
 
   <script>
+    // GANTI URL INI DENGAN URL DEPLOYMENT WEB APP ANDA SELEPAS MELAKUKAN NEW DEPLOYMENT
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
     
     let currentUser = "";
@@ -458,29 +459,20 @@
     let adminKey    = "";
     let activeEditingRow = null;
 
-    /**
-     * FUNGSI FORMAT ANGKA STANDAR INTERNASIONAL (en-US)
-     * - Pemisah Ribuan: Koma (,) -> Contoh: 35,000
-     * - Pemisah Desimal: Titik (.) -> Contoh: 4.3 atau 4.5
-     */
     function formatNumberDisplay(val) {
       if (val === null || val === undefined || val === '') return '-';
       
       let strVal = String(val).trim();
 
-      // Sanitasi karakter non-standar jika spreadsheet sebelumnya menggunakan format lokal
       if (strVal.includes(',') && !strVal.includes('.')) {
-        // Jika terdapat koma tanpa titik (misal: "4,3"), ubah ke titik "4.3"
         strVal = strVal.replace(',', '.');
       } else if (strVal.includes('.') && strVal.includes(',')) {
-        // Jika format campuran (misal: "35.000,00"), bersihkan ke bentuk angka murni
         strVal = strVal.replace(/\./g, '').replace(',', '.');
       }
 
       let num = parseFloat(strVal);
       if (isNaN(num)) return val;
 
-      // Gunakan locale 'en-US' untuk standar internasional
       return new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
@@ -516,14 +508,15 @@
       btn.innerText = "Authenticating...";
 
       try {
+        const blobPayload = new Blob([JSON.stringify({
+          action: "login",
+          surveyorName: userVal,
+          userPin: pinVal
+        })], { type: 'text/plain;charset=utf-8' });
+
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: "login",
-            surveyorName: userVal,
-            userPin: pinVal
-          })
+          body: blobPayload
         });
 
         const result = await response.json();
@@ -599,15 +592,16 @@
 
     async function changeStatus(targetUser, newStatus) {
       try {
+        const blobPayload = new Blob([JSON.stringify({
+          action: "updateUserStatus",
+          targetUser: targetUser,
+          newStatus: newStatus,
+          masterKey: adminKey
+        })], { type: 'text/plain;charset=utf-8' });
+
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: "updateUserStatus",
-            targetUser: targetUser,
-            newStatus: newStatus,
-            masterKey: adminKey
-          })
+          body: blobPayload
         });
 
         const result = await response.json();
@@ -637,14 +631,15 @@
       if (!confirmResult.isConfirmed) return;
 
       try {
+        const blobPayload = new Blob([JSON.stringify({
+          action: "deleteUser",
+          targetUser: targetUser,
+          masterKey: adminKey
+        })], { type: 'text/plain;charset=utf-8' });
+
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: "deleteUser",
-            targetUser: targetUser,
-            masterKey: adminKey
-          })
+          body: blobPayload
         });
 
         const result = await response.json();
@@ -674,15 +669,16 @@
       btn.innerText = "Resetting...";
 
       try {
+        const blobPayload = new Blob([JSON.stringify({
+          action: "resetPin",
+          surveyorName: userVal,
+          newPin: newPin,
+          masterKey: masterKey
+        })], { type: 'text/plain;charset=utf-8' });
+
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: "resetPin",
-            surveyorName: userVal,
-            newPin: newPin,
-            masterKey: masterKey
-          })
+          body: blobPayload
         });
 
         const result = await response.json();
@@ -787,10 +783,11 @@
         btnSave.disabled = true;
         btnSave.innerText = "Saving Data...";
 
+        const blobPayload = new Blob([JSON.stringify(payload)], { type: 'text/plain;charset=utf-8' });
+
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+          body: blobPayload
         });
 
         const result = await response.json();
@@ -874,19 +871,18 @@
 
       const activeProject = getSelectedProject();
 
-      const payload = {
+      const blobPayload = new Blob([JSON.stringify({
         action: "deleteRow",
         rowIndex: rowIndex,
         surveyorName: currentUser,
         userPin: currentPin,
         newProjectName: activeProject
-      };
+      })], { type: 'text/plain;charset=utf-8' });
 
       try {
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+          body: blobPayload
         });
 
         const result = await response.json();
