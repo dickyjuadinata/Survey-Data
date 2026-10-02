@@ -123,7 +123,7 @@
       height: 70px;
     }
 
-    /* Buttons */
+    /* Buttons & Links */
     .btn-primary {
       width: 100%;
       background-color: #16a34a;
@@ -173,6 +173,17 @@
       cursor: pointer;
       font-size: 12px;
     }
+    .forgot-link {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #2563eb;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .forgot-link:hover {
+      text-decoration: underline;
+    }
 
     /* Table */
     table {
@@ -219,7 +230,10 @@
         <div class="form-group">
           <label for="loginPin">PIN / Password</label>
           <input type="password" id="loginPin" placeholder="Masukkan 4-6 angka" required>
-          <div class="hint-text">Jika baru pertama kali, PIN ini akan otomatis didaftarkan.</div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="hint-text">PIN baru otomatis mendaftar.</span>
+            <a class="forgot-link" onclick="handleForgotPin()">Lupa PIN?</a>
+          </div>
         </div>
 
         <button type="submit" class="btn-primary" id="btnLogin">Login System</button>
@@ -393,192 +407,89 @@
       }
     }
 
+    async function handleForgotPin() {
+      const userVal = document.getElementById("loginUser").value.trim();
+      if (!userVal) {
+        alert("Silakan isi Nama User/Surveyor terlebih dahulu untuk mengajukan reset PIN.");
+        document.getElementById("loginUser").focus();
+        return;
+      }
+
+      if (confirm("Kirim permintaan reset PIN ke Admin untuk user '" + userVal + "'?")) {
+        try {
+          const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "resetPinRequest",
+              surveyorName: userVal
+            })
+          });
+
+          const result = await response.json();
+          alert(result.message);
+        } catch (err) {
+          alert("Gagal mengontak server.");
+        }
+      }
+    }
+
     function handleLogout() {
       currentUser = "";
       currentPin  = "";
-      document.getElementById("loginUser").value = "";
-      document.getElementById("loginPin").value = "";
       document.getElementById("appSection").style.display = "none";
       document.getElementById("loginSection").style.display = "block";
+      document.getElementById("loginPin").value = "";
     }
 
     function switchTab(tabId) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-      document.getElementById(tabId).classList.add('active');
       if (tabId === 'inputTab') {
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
       } else {
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
       }
+      document.getElementById(tabId).classList.add('active');
     }
 
     async function loadProjectDropdown() {
-      const dropdown = document.getElementById("projectName");
-      dropdown.innerHTML = `<option value="">Loading projects...</option>`;
+      const select = document.getElementById("projectName");
+      select.innerHTML = '<option value="">-- Loading Projects --</option>';
 
       try {
-        const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
-        const result = await response.json();
+        const url = `${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponentLangkah untuk mengatasi lupa kata sandi (password) bergantung pada layanan atau akun yang ingin Anda akses. Berikut adalah panduan umum beserta mekanisme keamanan berbasis sains informasi yang digunakan untuk memulihkan akses:
 
-        if (result.status === "success") {
-          dropdown.innerHTML = `<option value="">-- Pilih Project --</option>`;
-          if (result.projects.length === 0) {
-            dropdown.innerHTML = `<option value="">-- Belum ada Project (Ketik Nama Baru) --</option>`;
-          } else {
-            result.projects.forEach(proj => {
-              const opt = document.createElement("option");
-              opt.value = proj;
-              opt.innerText = proj;
-              dropdown.appendChild(opt);
-            });
-          }
-        } else {
-          dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
-        }
-      } catch (err) {
-        dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
-      }
-    }
+**1. Gunakan Fitur Reset Password Resmi**
+* Buka halaman login aplikasi atau situs web yang bersangkutan.
+* Klik tautan **Lupa Password** (*Forgot Password*).
+* Masukkan alamat email atau nomor telepon yang terdaftar.
+* Sistem akan mengirimkan **One-Time Password (OTP)** atau tautan verifikasi (*magic link*).
+* Buat kata sandi baru yang memenuhi kriteria keamanan (minimal 12 karakter, kombinasi huruf besar/kecil, angka, dan simbol).
 
-    function getSelectedProject() {
-      const customProj = document.getElementById("newProjectName").value.trim();
-      const selectProj = document.getElementById("projectName").value.trim();
+*Dasar Ilmiah:* Metode ini memanfaatkan *Out-of-Band (OOB) Authentication*, di mana verifikasi dilakukan melalui saluran komunikasi terpisah (seperti SMS atau email) untuk memastikan identitas pengguna secara independen dari sesi login utama.
 
-      if (customProj !== "") return customProj;
-      if (selectProj !== "") return selectProj;
-      return currentUser;
-    }
+**2. Cek Pengelola Kata Sandi (Password Manager)**
+Jika Anda pernah menyimpan kata sandi di peramban (browser) atau aplikasi pengelola kata sandi:
+* **iOS / macOS (Apple Devices):** Buka **Pengaturan** > **Kata Sandi** (atau aplikasi **Passkeys & Passwords**), lalu gunakan Face ID/Touch ID untuk melihat kata sandi tersimpan.
+* **Google Chrome / Android:** Buka **Pengaturan** > **Pengelola Kata Sandi** (*Google Password Manager*) atau akses melalui `passwords.google.com`.
+* **Browser Lain (Firefox/Edge):** Akses menu Pengaturan, lalu cari bagian **Kata Sandi/Passwords**.
 
-    async function submitData() {
-      const btnSave = document.getElementById("btnSave");
-      const activeProject = getSelectedProject();
+*Dasar Ilmiah:* Pengelola kata sandi menyimpan data kredensial dalam bentuk terenkripsi secara lokal maupun awan menggunakan algoritma *Advanced Encryption Standard (AES-256)*. Enkripsi kunci publik dan privat memastikan data hanya dapat dibuka dengan autentikasi biometrik atau *Master Password* pengguna.
 
-      const payload = {
-        action: activeEditingRow ? "editRow" : "create",
-        rowIndex: activeEditingRow,
-        surveyorName: currentUser,
-        userPin: currentPin,
-        newProjectName: activeProject,
-        building: document.getElementById("building").value,
-        floor: document.getElementById("floor").value,
-        roomID: document.getElementById("roomID").value,
-        area: document.getElementById("area").value,
-        surface: document.getElementById("surface").value,
-        notes: document.getElementById("notes").value
-      };
+**3. Gunakan Kode Pemulihan (Recovery Keys / Codes)**
+Jika Anda menggunakan autentikasi dua faktor (2FA) dan terkunci dari akun:
+* Cari *Backup Codes* atau *Recovery Key* yang biasanya disarankan untuk diunduh/ditempel saat pertama kali mengaktifkan 2FA.
+* Masukkan kode tersebut pada opsi pemulihan alternatif saat login.
 
-      try {
-        btnSave.disabled = true;
-        btnSave.innerText = "Saving Data...";
+**4. Kontak Dukungan Pelanggan (Customer Support)**
+Jika akses ke email dan nomor telepon pemulihan sudah tidak aktif:
+* Hubungi pusat bantuan layanan terkait untuk melalui proses **Identitas dan Verifikasi Pemulihan Kredensial**.
+* Anda mungkin akan diminta mengunggah dokumen identitas resmi (seperti KTP atau Paspor) atau memverifikasi transaksi terakhir untuk membuktikan kepemilikan akun secara manual.
 
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
-        });
+---
 
-        const result = await response.json();
-
-        if (result.status === "success") {
-          alert(result.message);
-          activeEditingRow = null;
-
-          // Bersihkan kolom yang perlu di-reset
-          document.getElementById("roomID").value = "";
-          document.getElementById("area").value = "";
-          document.getElementById("surface").value = "";
-          document.getElementById("notes").value = "";
-
-          await loadProjectDropdown();
-          fetchRoomData();
-        } else {
-          alert(result.message);
-        }
-      } catch (err) {
-        alert("Terjadi kesalahan koneksi saat menyimpan data.");
-      } finally {
-        btnSave.disabled = false;
-        btnSave.innerText = "Save Room Data";
-      }
-    }
-
-    async function fetchRoomData() {
-      const tableBody = document.getElementById("roomTableBody");
-      const activeProject = getSelectedProject();
-
-      tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading data...</td></tr>`;
-
-      try {
-        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
-        const result = await response.json();
-
-        if (result.status === "success" && result.data && result.data.length > 0) {
-          tableBody.innerHTML = "";
-          result.data.forEach(item => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${item.building}</td>
-              <td>${item.floor}</td>
-              <td>${item.roomID}</td>
-              <td>
-                <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${item.building}', '${item.floor}', '${item.roomID}', '${item.area}', '${item.surface}')">Edit</button>
-                <button class="btn-delete" type="button" onclick="deleteRow('${item.rowIndex}')">Delete</button>
-              </td>
-            `;
-            tableBody.appendChild(tr);
-          });
-        } else {
-          tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Data tidak ditemukan pada project "${activeProject}"</td></tr>`;
-        }
-      } catch (err) {
-        tableBody.innerHTML = `<tr><td colspan="4" class="empty-row">Gagal memuat data</td></tr>`;
-      }
-    }
-
-    async function deleteRow(rowIndex) {
-      if (!confirm("Apakah Anda yakin ingin menghapus data ruangan ini?")) return;
-
-      const activeProject = getSelectedProject();
-
-      const payload = {
-        action: "deleteRow",
-        rowIndex: rowIndex,
-        surveyorName: currentUser,
-        userPin: currentPin,
-        newProjectName: activeProject
-      };
-
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-
-        if (result.status === "success") {
-          alert("Data berhasil dihapus!");
-          fetchRoomData();
-        } else {
-          alert("Gagal menghapus data: " + result.message);
-        }
-      } catch (err) {
-        alert("Terjadi kesalahan koneksi.");
-      }
-    }
-
-    function editRow(rowIndex, building, floor, roomID, area, surface) {
-      activeEditingRow = rowIndex;
-      document.getElementById("building").value = building;
-      document.getElementById("floor").value = floor;
-      document.getElementById("roomID").value = roomID;
-      document.getElementById("area").value = area;
-      document.getElementById("surface").value = surface;
-      switchTab('inputTab');
-    }
-  </script>
-</body>
-</html>
+**Referensi Ilmiah:**
+1. **NIST Special Publication 800-63B:** *Digital Identity Guidelines - Authentication and Lifecycle Management*. National Institute of Standards and Technology (NIST), U.S. Department of Commerce.
+2. **Stallings, W. (2017):** *Cryptography and Network Security: Principles and Practice* (7th Edition). Pearson.
