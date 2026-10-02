@@ -196,6 +196,19 @@
     .btn-duplicate-main:hover {
       background-color: #7c3aed;
     }
+    .btn-delete-selected {
+      background-color: #ef4444;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-delete-selected:hover {
+      background-color: #dc2626;
+    }
     .btn-download {
       background-color: #059669;
       color: white;
@@ -217,7 +230,6 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
-      margin-right: 4px;
     }
     .btn-edit:hover {
       background-color: #ca8a04;
@@ -459,6 +471,7 @@
           <div class="action-toolbar">
             <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
             <button type="button" class="btn-duplicate-main" onclick="duplicateSelectedRooms()">Duplicate Selected</button>
+            <button type="button" class="btn-delete-selected" onclick="deleteSelectedRooms()">Delete Selected</button>
             <button type="button" class="btn-download" onclick="downloadSheet()">Download Sheet (XLSX)</button>
           </div>
 
@@ -473,7 +486,7 @@
                   <th>Area (m²)</th>
                   <th>Surface Type</th>
                   <th>Notes / Remarks</th>
-                  <th style="min-width: 110px;">Actions</th>
+                  <th style="min-width: 80px; text-align: center;">Actions</th>
                 </tr>
               </thead>
               <tbody id="roomTableBody">
@@ -890,9 +903,8 @@
               <td>${escArea}</td>
               <td>${escSurface}</td>
               <td>${escNotes || "-"}</td>
-              <td>
+              <td style="text-align: center;">
                 <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${escBuilding}', '${escFloor}', '${escRoomID}', '${escArea}', '${escSurface}', '${escNotes}')">Edit</button>
-                <button class="btn-delete" type="button" onclick="deleteRow('${item.rowIndex}')">Delete</button>
               </td>
             `;
             tableBody.appendChild(tr);
@@ -907,123 +919,137 @@
 
     /* DUPLICATE MULTIPLE SELECTED ROOMS */
     async function duplicateSelectedRooms() {
-  const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
-  
-  if (selectedCheckboxes.length === 0) {
-    showAlert('Warning', 'Please select at least one room to duplicate using the checkbox!', 'warning');
-    return;
-  }
-
-  const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
-
-  // SweetAlert2 dengan 2 Input: Target Building & Target Floor
-  const { value: formValues } = await Swal.fire({
-    title: `Duplicate ${selectedRows.length} Room(s)`,
-    html:
-      '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
-      '<input id="swal-input-building" class="swal2-input" placeholder="e.g., Penunjang / Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">' +
-      '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
-      '<input id="swal-input-floor" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">',
-    focusConfirm: false,
-    showCancelButton: true,
-    confirmButtonText: 'Duplicate Rooms',
-    confirmButtonColor: '#8b5cf6',
-    cancelButtonColor: '#6b7280',
-    preConfirm: () => {
-      const targetBuilding = document.getElementById('swal-input-building').value.trim();
-      const targetFloor = document.getElementById('swal-input-floor').value.trim();
-
-      if (!targetBuilding) {
-        Swal.showValidationMessage('Target building name cannot be empty!');
-        return false;
+      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+      
+      if (selectedCheckboxes.length === 0) {
+        showAlert('Warning', 'Please select at least one room to duplicate using the checkbox!', 'warning');
+        return;
       }
-      if (!targetFloor) {
-        Swal.showValidationMessage('Target floor name cannot be empty!');
-        return false;
-      }
-      return { targetBuilding, targetFloor };
-    }
-  });
 
-  if (formValues) {
-    const activeProject = getSelectedProject();
+      const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
 
-    Swal.fire({
-      title: 'Duplicating Rooms...',
-      allowOutsideClick: false,
-      didOpen: () => { Swal.showLoading(); }
-    });
+      // SweetAlert2 dengan 2 Input: Target Building & Target Floor
+      const { value: formValues } = await Swal.fire({
+        title: `Duplicate ${selectedRows.length} Room(s)`,
+        html:
+          '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
+          '<input id="swal-input-building" class="swal2-input" placeholder="e.g., Penunjang / Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">' +
+          '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
+          '<input id="swal-input-floor" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">',
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Duplicate Rooms',
+        confirmButtonColor: '#8b5cf6',
+        cancelButtonColor: '#6b7280',
+        preConfirm: () => {
+          const targetBuilding = document.getElementById('swal-input-building').value.trim();
+          const targetFloor = document.getElementById('swal-input-floor').value.trim();
 
-    try {
-      const response = await fetch(SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "duplicateSelected",
-          selectedRows: selectedRows,
-          targetBuilding: formValues.targetBuilding,
-          targetFloor: formValues.targetFloor,
-          surveyorName: currentUser,
-          userPin: currentPin,
-          newProjectName: activeProject
-        })
+          if (!targetBuilding) {
+            Swal.showValidationMessage('Target building name cannot be empty!');
+            return false;
+          }
+          if (!targetFloor) {
+            Swal.showValidationMessage('Target floor name cannot be empty!');
+            return false;
+          }
+          return { targetBuilding, targetFloor };
+        }
       });
 
-      const result = await response.json();
+      if (formValues) {
+        const activeProject = getSelectedProject();
 
-      if (result.status === "success") {
-        showAlert('Success!', result.message, 'success');
-        fetchRoomData();
-      } else {
-        showAlert('Duplicate Failed', result.message, 'error');
+        Swal.fire({
+          title: 'Duplicating Rooms...',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+          const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "duplicateSelected",
+              selectedRows: selectedRows,
+              targetBuilding: formValues.targetBuilding,
+              targetFloor: formValues.targetFloor,
+              surveyorName: currentUser,
+              userPin: currentPin,
+              newProjectName: activeProject
+            })
+          });
+
+          const result = await response.json();
+
+          if (result.status === "success") {
+            showAlert('Success!', result.message, 'success');
+            fetchRoomData();
+          } else {
+            showAlert('Duplicate Failed', result.message, 'error');
+          }
+        } catch (err) {
+          showAlert('Error', 'Connection error occurred during room duplication.', 'error');
+        }
       }
-    } catch (err) {
-      showAlert('Error', 'Connection error occurred during room duplication.', 'error');
     }
-  }
-}
 
-    async function deleteRow(rowIndex) {
+    /* DELETE MULTIPLE SELECTED ROOMS */
+    async function deleteSelectedRooms() {
+      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+      
+      if (selectedCheckboxes.length === 0) {
+        showAlert('Warning', 'Please select at least one room to delete using the checkbox!', 'warning');
+        return;
+      }
+
+      const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
+
       const confirmResult = await Swal.fire({
-        title: 'Delete Data?',
-        text: 'Are you sure you want to delete this room data?',
+        title: 'Delete Selected Rooms?',
+        text: `Are you sure you want to delete ${selectedRows.length} selected room(s)? This action cannot be undone.`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, Delete!',
+        confirmButtonText: 'Yes, Delete All',
         cancelButtonText: 'Cancel'
       });
 
-      if (!confirmResult.isConfirmed) return;
+      if (confirmResult.isConfirmed) {
+        const activeProject = getSelectedProject();
 
-      const activeProject = getSelectedProject();
-
-      const payload = {
-        action: "deleteRow",
-        rowIndex: rowIndex,
-        surveyorName: currentUser,
-        userPin: currentPin,
-        newProjectName: activeProject
-      };
-
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+        Swal.fire({
+          title: 'Deleting Rooms...',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
         });
 
-        const result = await response.json();
+        try {
+          const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "deleteSelected",
+              selectedRows: selectedRows,
+              surveyorName: currentUser,
+              userPin: currentPin,
+              newProjectName: activeProject
+            })
+          });
 
-        if (result.status === "success") {
-          showAlert('Deleted!', 'Data deleted successfully.', 'success');
-          fetchRoomData();
-        } else {
-          showAlert('Delete Failed', result.message, 'error');
+          const result = await response.json();
+
+          if (result.status === "success") {
+            showAlert('Deleted!', result.message, 'success');
+            fetchRoomData();
+          } else {
+            showAlert('Delete Failed', result.message, 'error');
+          }
+        } catch (err) {
+          showAlert('Error', 'Connection error occurred during deletion.', 'error');
         }
-      } catch (err) {
-        showAlert('Error', 'Connection error occurred.', 'error');
       }
     }
 
