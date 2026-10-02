@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Room Data System</title>
 
-  <!-- SweetAlert2 CSS & JS (Modern Popups) -->
+  <!-- SweetAlert2 CSS & JS -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
@@ -27,11 +27,10 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       width: 100%;
-      max-width: 500px;
+      max-width: 550px;
       padding: 28px;
     }
     
-    /* Header Section */
     .header-bar {
       display: flex;
       justify-content: space-between;
@@ -66,7 +65,6 @@
       background-color: #e5e7eb;
     }
 
-    /* Tab Style */
     .tab-nav {
       display: flex;
       border-bottom: 2px solid #e5e7eb;
@@ -96,7 +94,6 @@
       display: block;
     }
 
-    /* Form & Input */
     .form-group {
       margin-bottom: 16px;
     }
@@ -127,7 +124,6 @@
       height: 70px;
     }
 
-    /* Buttons */
     .btn-primary {
       width: 100%;
       background-color: #16a34a;
@@ -156,6 +152,21 @@
       cursor: pointer;
       margin-top: 8px;
     }
+    .btn-admin {
+      width: 100%;
+      background-color: #1e293b;
+      color: white;
+      border: none;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 14px;
+    }
+    .btn-admin:hover {
+      background-color: #0f172a;
+    }
     .btn-reload {
       background-color: #2563eb;
       color: white;
@@ -167,30 +178,37 @@
       cursor: pointer;
       margin-bottom: 12px;
     }
-    .btn-reload:hover {
-      background-color: #1d4ed8;
-    }
-    .btn-edit {
-      background-color: #eab308;
-      color: white;
-      border: none;
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      margin-right: 4px;
-    }
-    .btn-delete {
-      background-color: #ef4444;
-      color: white;
-      border: none;
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    }
 
-    /* Table */
+    /* Action Badges/Buttons */
+    .btn-approve {
+      background-color: #16a34a;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      margin-right: 2px;
+    }
+    .btn-block {
+      background-color: #dc2626;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .status-badge {
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .status-APPROVED { background-color: #dcfce7; color: #15803d; }
+    .status-PENDING { background-color: #fef9c3; color: #a16207; }
+    .status-BLOCKED { background-color: #fee2e2; color: #b91c1c; }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -246,10 +264,11 @@
         </div>
 
         <button type="submit" class="btn-primary" id="btnLogin">Log In</button>
+        <button type="button" class="btn-admin" onclick="openAdminModal()">Open Admin Panel</button>
       </form>
     </div>
 
-    <!-- RESET PIN FORM (FORGOT PASSWORD) -->
+    <!-- RESET PIN FORM -->
     <div id="forgotSection" style="display: none;">
       <h2 style="text-align: center; margin-top: 0; color: #111827;">Reset PIN / Password</h2>
       <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 20px;">Request the <b>Admin Master Key</b> from your Administrator to reset your PIN.</p>
@@ -275,9 +294,38 @@
       </form>
     </div>
 
+    <!-- ADMIN PANEL -->
+    <div id="adminSection" style="display: none;">
+      <div class="header-bar">
+        <div>
+          <h3>Admin Control Panel</h3>
+          <span class="user-badge" style="background-color: #eff6ff; color: #1d4ed8;">Admin Mode</span>
+        </div>
+        <button class="btn-logout" onclick="closeAdminPanel()">Exit Admin</button>
+      </div>
+
+      <p style="font-size: 13px; color: #4b5563;">Manage user approval status and block/unblock permissions.</p>
+
+      <button type="button" class="btn-reload" onclick="fetchAdminUsers()">Refresh User List</button>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="adminUserTableBody">
+          <tr>
+            <td colspan="3" class="empty-row">Loading user list...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- MAIN DASHBOARD -->
     <div id="appSection" style="display: none;">
-      
       <div class="header-bar">
         <div>
           <h3>Room Data Form</h3>
@@ -393,9 +441,9 @@
     
     let currentUser = "";
     let currentPin  = "";
+    let adminKey    = "";
     let activeEditingRow = null;
 
-    /* --- Modern Popup Helper (SweetAlert2) --- */
     function showAlert(title, message, iconType = 'info') {
       Swal.fire({
         title: title,
@@ -455,6 +503,87 @@
       } finally {
         btn.disabled = false;
         btn.innerText = "Log In";
+      }
+    }
+
+    /* --- PANEL ADMIN FUNCTIONS --- */
+    async function openAdminModal() {
+      const { value: inputKey } = await Swal.fire({
+        title: 'Admin Key Required',
+        input: 'password',
+        inputLabel: 'Enter Admin Secret Master Key',
+        inputPlaceholder: 'Enter key...',
+        showCancelButton: true,
+        confirmButtonColor: '#1e293b'
+      });
+
+      if (inputKey) {
+        adminKey = inputKey;
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("adminSection").style.display = "block";
+        fetchAdminUsers();
+      }
+    }
+
+    function closeAdminPanel() {
+      adminKey = "";
+      document.getElementById("adminSection").style.display = "none";
+      document.getElementById("loginSection").style.display = "block";
+    }
+
+    async function fetchAdminUsers() {
+      const tableBody = document.getElementById("adminUserTableBody");
+      tableBody.innerHTML = `<tr><td colspan="3" class="empty-row">Loading users...</td></tr>`;
+
+      try {
+        const response = await fetch(`${SCRIPT_URL}?action=getAllUsers&masterKey=${encodeURIComponent(adminKey)}`);
+        const result = await response.json();
+
+        if (result.status === "success") {
+          tableBody.innerHTML = "";
+          result.users.forEach(u => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td><b>${u.username}</b></td>
+              <td><span class="status-badge status-${u.status}">${u.status}</span></td>
+              <td>
+                ${u.status !== 'APPROVED' ? `<button class="btn-approve" onclick="changeStatus('${u.username}', 'APPROVED')">Approve</button>` : ''}
+                ${u.status !== 'BLOCKED' ? `<button class="btn-block" onclick="changeStatus('${u.username}', 'BLOCKED')">Block</button>` : ''}
+              </td>
+            `;
+            tableBody.appendChild(tr);
+          });
+        } else {
+          showAlert('Admin Error', result.message, 'error');
+          closeAdminPanel();
+        }
+      } catch (err) {
+        tableBody.innerHTML = `<tr><td colspan="3" class="empty-row">Failed to load users.</td></tr>`;
+      }
+    }
+
+    async function changeStatus(targetUser, newStatus) {
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "updateUserStatus",
+            targetUser: targetUser,
+            newStatus: newStatus,
+            masterKey: adminKey
+          })
+        });
+
+        const result = await response.json();
+        if (result.status === "success") {
+          showAlert('Updated', result.message, 'success');
+          fetchAdminUsers();
+        } else {
+          showAlert('Error', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection failed.', 'error');
       }
     }
 
@@ -544,7 +673,6 @@
             });
           }
 
-          // Retain active selected project
           if (selectedProjectToKeep) {
             dropdown.value = selectedProjectToKeep;
           }
@@ -599,14 +727,12 @@
           showAlert('Success!', result.message, 'success');
           activeEditingRow = null;
 
-          // Reset input fields
           document.getElementById("roomID").value = "";
           document.getElementById("area").value = "";
           document.getElementById("surface").value = "";
           document.getElementById("notes").value = "";
           document.getElementById("newProjectName").value = "";
 
-          // Retain active project in dropdown & refresh list
           await loadProjectDropdown(activeProject);
           fetchRoomData();
         } else {
@@ -654,7 +780,6 @@
     }
 
     async function deleteRow(rowIndex) {
-      // Modern Delete Confirmation Modal with SweetAlert2
       const confirmResult = await Swal.fire({
         title: 'Delete Data?',
         text: 'Are you sure you want to delete this room record?',
