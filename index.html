@@ -451,7 +451,7 @@
   </div>
 
   <script>
-    // GANTI URL INI DENGAN URL DEPLOYMENT WEB APP ANDA SELEPAS MELAKUKAN NEW DEPLOYMENT
+    // PERBARUI DENGAN URL DEPLOYMENT WEB APP ANDA
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGfaC2Ldi19dGuwAP2jg7hTFe6POdpBykclVf90ZaZd1xsosaP6MQiFa4IQqblMMt2A/exec";
     
     let currentUser = "";
@@ -508,15 +508,15 @@
       btn.innerText = "Authenticating...";
 
       try {
-        const blobPayload = new Blob([JSON.stringify({
-          action: "login",
-          surveyorName: userVal,
-          userPin: pinVal
-        })], { type: 'text/plain;charset=utf-8' });
-
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: blobPayload
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "login",
+            surveyorName: userVal,
+            userPin: pinVal
+          }),
+          redirect: "follow"
         });
 
         const result = await response.json();
@@ -592,16 +592,16 @@
 
     async function changeStatus(targetUser, newStatus) {
       try {
-        const blobPayload = new Blob([JSON.stringify({
-          action: "updateUserStatus",
-          targetUser: targetUser,
-          newStatus: newStatus,
-          masterKey: adminKey
-        })], { type: 'text/plain;charset=utf-8' });
-
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: blobPayload
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "updateUserStatus",
+            targetUser: targetUser,
+            newStatus: newStatus,
+            masterKey: adminKey
+          }),
+          redirect: "follow"
         });
 
         const result = await response.json();
@@ -631,15 +631,15 @@
       if (!confirmResult.isConfirmed) return;
 
       try {
-        const blobPayload = new Blob([JSON.stringify({
-          action: "deleteUser",
-          targetUser: targetUser,
-          masterKey: adminKey
-        })], { type: 'text/plain;charset=utf-8' });
-
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: blobPayload
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "deleteUser",
+            targetUser: targetUser,
+            masterKey: adminKey
+          }),
+          redirect: "follow"
         });
 
         const result = await response.json();
@@ -669,16 +669,16 @@
       btn.innerText = "Resetting...";
 
       try {
-        const blobPayload = new Blob([JSON.stringify({
-          action: "resetPin",
-          surveyorName: userVal,
-          newPin: newPin,
-          masterKey: masterKey
-        })], { type: 'text/plain;charset=utf-8' });
-
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: blobPayload
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "resetPin",
+            surveyorName: userVal,
+            newPin: newPin,
+            masterKey: masterKey
+          }),
+          redirect: "follow"
         });
 
         const result = await response.json();
@@ -783,11 +783,11 @@
         btnSave.disabled = true;
         btnSave.innerText = "Saving Data...";
 
-        const blobPayload = new Blob([JSON.stringify(payload)], { type: 'text/plain;charset=utf-8' });
-
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: blobPayload
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload),
+          redirect: "follow"
         });
 
         const result = await response.json();
@@ -871,18 +871,18 @@
 
       const activeProject = getSelectedProject();
 
-      const blobPayload = new Blob([JSON.stringify({
-        action: "deleteRow",
-        rowIndex: rowIndex,
-        surveyorName: currentUser,
-        userPin: currentPin,
-        newProjectName: activeProject
-      })], { type: 'text/plain;charset=utf-8' });
-
       try {
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: blobPayload
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "deleteRow",
+            rowIndex: rowIndex,
+            surveyorName: currentUser,
+            userPin: currentPin,
+            newProjectName: activeProject
+          }),
+          redirect: "follow"
         });
 
         const result = await response.json();
