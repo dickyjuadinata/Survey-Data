@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Room Data System</title>
+  <title>Room Data System & Admin Panel</title>
 
   <!-- SweetAlert2 CSS & JS -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -49,6 +49,14 @@
       font-size: 12px;
       background-color: #ecfdf5;
       color: #047857;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .admin-badge {
+      font-size: 12px;
+      background-color: #fee2e2;
+      color: #991b1b;
       padding: 4px 8px;
       border-radius: 20px;
       font-weight: 600;
@@ -282,17 +290,17 @@
     <!-- LOGIN FORM -->
     <div id="loginSection">
       <h2 style="text-align: center; margin-top: 0; color: #111827;">System Login</h2>
-      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 24px;">Enter your surveyor name and PIN to access the form.</p>
+      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 24px;">Enter your username/surveyor name and PIN to access the system.</p>
       
       <form onsubmit="event.preventDefault(); handleLogin();">
         <div class="form-group">
           <label for="loginUser">User / Surveyor Name</label>
-          <input type="text" id="loginUser" placeholder="e.g., Dicky" required>
+          <input type="text" id="loginUser" placeholder="e.g., Dicky / Admin" required>
         </div>
 
         <div class="form-group">
           <label for="loginPin">PIN / Password</label>
-          <input type="password" id="loginPin" placeholder="Enter 4-6 digits" required>
+          <input type="password" id="loginPin" placeholder="Enter PIN / Password" required>
           <a class="forgot-link" onclick="toggleForgotForm(true)">Forgot PIN / Password?</a>
         </div>
 
@@ -326,7 +334,40 @@
       </form>
     </div>
 
-    <!-- MAIN DASHBOARD -->
+    <!-- ADMIN CONTROL PANEL DASHBOARD -->
+    <div id="adminSection" style="display: none;">
+      <div class="header-bar">
+        <div>
+          <h3>Admin Control Panel</h3>
+          <span class="admin-badge" id="displayAdmin">Role: Administrator</span>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+      </div>
+
+      <div class="action-toolbar">
+        <button type="button" class="btn-reload" onclick="loadAdminUsers()">Refresh User List</button>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Current Status</th>
+              <th>Change Status</th>
+              <th style="width: 140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminUserTableBody">
+            <tr>
+              <td colspan="4" class="empty-row">Click Refresh User List to load data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SURVEYOR MAIN DASHBOARD -->
     <div id="appSection" style="display: none;">
       
       <div class="header-bar">
@@ -512,12 +553,19 @@
           currentUser = userVal;
           currentPin  = pinVal;
 
-          document.getElementById("displayUser").innerText = "User: " + currentUser;
           document.getElementById("loginSection").style.display = "none";
-          document.getElementById("appSection").style.display = "block";
 
-          await loadProjectDropdown();
-          fetchRoomData();
+          // CEK JIKA USER ADALAH ADMIN
+          if (result.isAdmin) {
+            document.getElementById("displayAdmin").innerText = `Admin: ${currentUser}`;
+            document.getElementById("adminSection").style.display = "block";
+            loadAdminUsers();
+          } else {
+            document.getElementById("displayUser").innerText = "User: " + currentUser;
+            document.getElementById("appSection").style.display = "block";
+            await loadProjectDropdown();
+            fetchRoomData();
+          }
         } else {
           showAlert('Login Failed', result.message, 'error');
         }
@@ -578,10 +626,126 @@
       currentPin  = "";
       document.getElementById("loginUser").value = "";
       document.getElementById("loginPin").value = "";
+      document.getElementById("adminSection").style.display = "none";
       document.getElementById("appSection").style.display = "none";
       document.getElementById("loginSection").style.display = "block";
     }
 
+    /* OPERASIONAL ADMIN PANEL */
+    async function loadAdminUsers() {
+      const tbody = document.getElementById("adminUserTableBody");
+      tbody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading users...</td></tr>`;
+
+      try {
+        const url = `${SCRIPT_URL}?action=getAllUsers&masterKey=${encodeURIComponent(currentPin)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === "success" && result.users) {
+          tbody.innerHTML = "";
+          if (result.users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-row">No users found.</td></tr>`;
+            return;
+          }
+
+          result.users.forEach(u => {
+            const tr = document.createElement("tr");
+            const escUser = escapeHtml(u.username);
+            const escStatus = escapeHtml(u.status);
+
+            tr.innerHTML = `
+              <td><b>${escUser}</b></td>
+              <td><span>${escStatus}</span></td>
+              <td>
+                <select id="statusSelect_${escUser}" style="width: auto; display: inline-block; padding: 4px 8px;">
+                  <option value="PENDING" ${u.status === 'PENDING' ? 'selected' : ''}>PENDING</option>
+                  <option value="APPROVED" ${u.status === 'APPROVED' ? 'selected' : ''}>APPROVED</option>
+                  <option value="BLOCKED" ${u.status === 'BLOCKED' ? 'selected' : ''}>BLOCKED</option>
+                </select>
+                <button class="btn-edit" style="margin-left: 4px;" onclick="updateUserStatus('${escUser}')">Update</button>
+              </td>
+              <td>
+                <button class="btn-delete" onclick="deleteUserAndFiles('${escUser}')">Delete User & Files</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          showAlert('Error', result.message || 'Failed to fetch user list.', 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection error while fetching user list.', 'error');
+      }
+    }
+
+    async function updateUserStatus(targetUser) {
+      const selectElem = document.getElementById(`statusSelect_${targetUser}`);
+      if (!selectElem) return;
+      const newStatus = selectElem.value;
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "updateUserStatus",
+            targetUser: targetUser,
+            newStatus: newStatus,
+            masterKey: currentPin
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          showAlert('Success', result.message, 'success');
+          loadAdminUsers();
+        } else {
+          showAlert('Update Failed', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to update user status.', 'error');
+      }
+    }
+
+    async function deleteUserAndFiles(targetUser) {
+      const confirmResult = await Swal.fire({
+        title: 'Delete User & Files?',
+        text: `Are you sure you want to delete '${targetUser}' and all associated files from Google Drive?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, Delete All!'
+      });
+
+      if (!confirmResult.isConfirmed) return;
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "deleteUser",
+            targetUser: targetUser,
+            masterKey: currentPin
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          showAlert('Deleted!', result.message, 'success');
+          loadAdminUsers();
+        } else {
+          showAlert('Delete Failed', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to delete user.', 'error');
+      }
+    }
+
+    /* OPERASIONAL SURVEYOR TAB & DASHBOARD */
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -688,7 +852,7 @@
       }
     }
 
-    /* PENGATURAN CHECKBOX SELECT ALL */
+    /* CHECKBOX SELECT ALL */
     function toggleSelectAll(masterCheckbox) {
       const checkboxes = document.querySelectorAll('.row-checkbox');
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
@@ -720,12 +884,12 @@
 
             tr.innerHTML = `
               <td class="center-col"><input type="checkbox" class="row-checkbox" value="${item.rowIndex}"></td>
-              <td>${item.building}</td>
-              <td>${item.floor}</td>
-              <td>${item.roomID}</td>
-              <td>${item.area}</td>
-              <td>${item.surface}</td>
-              <td>${item.notes || "-"}</td>
+              <td>${escBuilding}</td>
+              <td>${escFloor}</td>
+              <td>${escRoomID}</td>
+              <td>${escArea}</td>
+              <td>${escSurface}</td>
+              <td>${escNotes || "-"}</td>
               <td>
                 <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${escBuilding}', '${escFloor}', '${escRoomID}', '${escArea}', '${escSurface}', '${escNotes}')">Edit</button>
                 <button class="btn-delete" type="button" onclick="deleteRow('${item.rowIndex}')">Delete</button>
@@ -741,7 +905,7 @@
       }
     }
 
-    /* FITUR DUPLICATE MULTIPLE SELECTED */
+    /* DUPLICATE MULTIPLE SELECTED ROOMS */
     async function duplicateSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
