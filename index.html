@@ -372,7 +372,7 @@
 
           <div class="form-group">
             <label for="area">Area (sqm)</label>
-            <input type="number" id="area" placeholder="e.g. 100" step="any" required>
+            <input type="number" id="area" placeholder="e.g. 35000 or 4.3" step="any" required>
           </div>
 
           <div class="form-group">
@@ -458,18 +458,30 @@
     let adminKey    = "";
     let activeEditingRow = null;
 
-    // FUNGSI UTAMA UNTUK FORMAT SEPARATOR RIBUAN DAN DESIMAL
+    /**
+     * FUNGSI FORMAT ANGKA STANDAR INTERNASIONAL (en-US)
+     * - Pemisah Ribuan: Koma (,) -> Contoh: 35,000
+     * - Pemisah Desimal: Titik (.) -> Contoh: 4.3 atau 4.5
+     */
     function formatNumberDisplay(val) {
       if (val === null || val === undefined || val === '') return '-';
       
-      // Jika string masih dalam bentuk ISO Date (pencegahan tambahan), ambil angka desimalnya
-      let cleanedVal = String(val).replace(',', '.');
-      let num = parseFloat(cleanedVal);
+      let strVal = String(val).trim();
 
+      // Sanitasi karakter non-standar jika spreadsheet sebelumnya menggunakan format lokal
+      if (strVal.includes(',') && !strVal.includes('.')) {
+        // Jika terdapat koma tanpa titik (misal: "4,3"), ubah ke titik "4.3"
+        strVal = strVal.replace(',', '.');
+      } else if (strVal.includes('.') && strVal.includes(',')) {
+        // Jika format campuran (misal: "35.000,00"), bersihkan ke bentuk angka murni
+        strVal = strVal.replace(/\./g, '').replace(',', '.');
+      }
+
+      let num = parseFloat(strVal);
       if (isNaN(num)) return val;
 
-      // Format Angka Indonesia: Titik untuk Ribuan, Koma untuk Desimal
-      return new Intl.NumberFormat('id-ID', {
+      // Gunakan locale 'en-US' untuk standar internasional
+      return new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       }).format(num);
