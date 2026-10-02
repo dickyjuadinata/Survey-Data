@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Room Data System</title>
+
+  <!-- SweetAlert2 CSS & JS (Popup Modern) -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   <style>
     * {
       box-sizing: border-box;
@@ -206,11 +210,6 @@
       text-align: center;
       color: #6b7280;
     }
-    .hint-text {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 4px;
-    }
     .forgot-link {
       display: block;
       text-align: right;
@@ -396,6 +395,17 @@
     let currentPin  = "";
     let activeEditingRow = null;
 
+    /* --- Helper Notifikasi Popup Modern (SweetAlert2) --- */
+    function showAlert(title, message, iconType = 'info') {
+      Swal.fire({
+        title: title,
+        text: message,
+        icon: iconType,
+        confirmButtonColor: '#16a34a',
+        confirmButtonText: 'OK'
+      });
+    }
+
     function toggleForgotForm(showForgot) {
       document.getElementById("loginSection").style.display = showForgot ? "none" : "block";
       document.getElementById("forgotSection").style.display = showForgot ? "block" : "none";
@@ -407,7 +417,7 @@
       const btn     = document.getElementById("btnLogin");
 
       if (!userVal || !pinVal) {
-        alert("Nama User dan PIN wajib diisi!");
+        showAlert('Perhatian', 'Nama User dan PIN wajib diisi!', 'warning');
         return;
       }
 
@@ -438,10 +448,10 @@
           await loadProjectDropdown();
           fetchRoomData();
         } else {
-          alert(result.message);
+          showAlert('Login Gagal', result.message, 'error');
         }
       } catch (err) {
-        alert("Gagal terhubung ke server login.");
+        showAlert('Error', 'Gagal terhubung ke server login.', 'error');
       } finally {
         btn.disabled = false;
         btn.innerText = "Login System";
@@ -455,7 +465,7 @@
       const btn       = document.getElementById("btnReset");
 
       if (!userVal || !newPin || !masterKey) {
-        alert("Semua field reset password wajib diisi!");
+        showAlert('Perhatian', 'Semua field reset password wajib diisi!', 'warning');
         return;
       }
 
@@ -477,15 +487,15 @@
         const result = await response.json();
 
         if (result.status === "success") {
-          alert(result.message);
+          showAlert('Berhasil', result.message, 'success');
           toggleForgotForm(false);
           document.getElementById("loginUser").value = userVal;
           document.getElementById("loginPin").value = newPin;
         } else {
-          alert(result.message);
+          showAlert('Gagal Reset', result.message, 'error');
         }
       } catch (err) {
-        alert("Gagal menghubungi server untuk reset password.");
+        showAlert('Error', 'Gagal menghubungi server untuk reset password.', 'error');
       } finally {
         btn.disabled = false;
         btn.innerText = "Reset Password";
@@ -513,98 +523,102 @@
       }
     }
 
-    // Modifikasi fungsi loadProjectDropdown agar bisa menerima parameter proyek yang sedang dipilih
-async function loadProjectDropdown(selectedProjectToKeep = "") {
-  const dropdown = document.getElementById("projectName");
-  dropdown.innerHTML = `<option value="">Loading projects...</option>`;
+    async function loadProjectDropdown(selectedProjectToKeep = "") {
+      const dropdown = document.getElementById("projectName");
+      dropdown.innerHTML = `<option value="">Loading projects...</option>`;
 
-  try {
-    const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
-    const result = await response.json();
+      try {
+        const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
+        const result = await response.json();
 
-    if (result.status === "success") {
-      dropdown.innerHTML = `<option value="">-- Pilih Project --</option>`;
-      if (result.projects.length === 0) {
-        dropdown.innerHTML = `<option value="">-- Belum ada Project (Ketik Nama Baru) --</option>`;
-      } else {
-        result.projects.forEach(proj => {
-          const opt = document.createElement("option");
-          opt.value = proj;
-          opt.innerText = proj;
-          dropdown.appendChild(opt);
+        if (result.status === "success") {
+          dropdown.innerHTML = `<option value="">-- Pilih Project --</option>`;
+          if (result.projects.length === 0) {
+            dropdown.innerHTML = `<option value="">-- Belum ada Project (Ketik Nama Baru) --</option>`;
+          } else {
+            result.projects.forEach(proj => {
+              const opt = document.createElement("option");
+              opt.value = proj;
+              opt.innerText = proj;
+              dropdown.appendChild(opt);
+            });
+          }
+
+          // Menjaga agar project terpilih tetap aktif
+          if (selectedProjectToKeep) {
+            dropdown.value = selectedProjectToKeep;
+          }
+        } else {
+          dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
+        }
+      } catch (err) {
+        dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
+      }
+    }
+
+    function getSelectedProject() {
+      const customProj = document.getElementById("newProjectName").value.trim();
+      const selectProj = document.getElementById("projectName").value.trim();
+
+      if (customProj !== "") return customProj;
+      if (selectProj !== "") return selectProj;
+      return currentUser;
+    }
+
+    async function submitData() {
+      const btnSave = document.getElementById("btnSave");
+      const activeProject = getSelectedProject();
+
+      const payload = {
+        action: activeEditingRow ? "editRow" : "create",
+        rowIndex: activeEditingRow,
+        surveyorName: currentUser,
+        userPin: currentPin,
+        newProjectName: activeProject,
+        building: document.getElementById("building").value,
+        floor: document.getElementById("floor").value,
+        roomID: document.getElementById("roomID").value,
+        area: document.getElementById("area").value,
+        surface: document.getElementById("surface").value,
+        notes: document.getElementById("notes").value
+      };
+
+      try {
+        btnSave.disabled = true;
+        btnSave.innerText = "Saving Data...";
+
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
         });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          showAlert('Berhasil!', result.message, 'success');
+          activeEditingRow = null;
+
+          // Reset field input
+          document.getElementById("roomID").value = "";
+          document.getElementById("area").value = "";
+          document.getElementById("surface").value = "";
+          document.getElementById("notes").value = "";
+          document.getElementById("newProjectName").value = "";
+
+          // Pertahankan project aktif di dropdown & muat ulang tabel
+          await loadProjectDropdown(activeProject);
+          fetchRoomData();
+        } else {
+          showAlert('Gagal Menyimpan', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Terjadi kesalahan koneksi saat menyimpan data.', 'error');
+      } finally {
+        btnSave.disabled = false;
+        btnSave.innerText = "Save Room Data";
       }
-
-      // Jika ada project yang harus tetap terpilih, set nilainya di sini
-      if (selectedProjectToKeep) {
-        dropdown.value = selectedProjectToKeep;
-      }
-    } else {
-      dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
     }
-  } catch (err) {
-    dropdown.innerHTML = `<option value="">Gagal memuat project</option>`;
-  }
-}
-
-async function submitData() {
-  const btnSave = document.getElementById("btnSave");
-  const activeProject = getSelectedProject();
-
-  const payload = {
-    action: activeEditingRow ? "editRow" : "create",
-    rowIndex: activeEditingRow,
-    surveyorName: currentUser,
-    userPin: currentPin,
-    newProjectName: activeProject,
-    building: document.getElementById("building").value,
-    floor: document.getElementById("floor").value,
-    roomID: document.getElementById("roomID").value,
-    area: document.getElementById("area").value,
-    surface: document.getElementById("surface").value,
-    notes: document.getElementById("notes").value
-  };
-
-  try {
-    btnSave.disabled = true;
-    btnSave.innerText = "Saving Data...";
-
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload)
-    });
-
-    const result = await response.json();
-
-    if (result.status === "success") {
-      alert(result.message);
-      activeEditingRow = null;
-
-      // Reset field input ruangan
-      document.getElementById("roomID").value = "";
-      document.getElementById("area").value = "";
-      document.getElementById("surface").value = "";
-      document.getElementById("notes").value = "";
-
-      // Kosongkan input custom project name agar fokus kembali ke dropdown yang dipilih
-      document.getElementById("newProjectName").value = "";
-
-      // Reload dropdown dan set nilai ke project yang sedang aktif
-      await loadProjectDropdown(activeProject);
-      
-      // Ambil ulang data daftar ruangan untuk project aktif tersebut
-      fetchRoomData();
-    } else {
-      alert(result.message);
-    }
-  } catch (err) {
-    alert("Terjadi kesalahan koneksi saat menyimpan data.");
-  } finally {
-    btnSave.disabled = false;
-    btnSave.innerText = "Save Room Data";
-  }
-}
 
     async function fetchRoomData() {
       const tableBody = document.getElementById("roomTableBody");
@@ -640,7 +654,19 @@ async function submitData() {
     }
 
     async function deleteRow(rowIndex) {
-      if (!confirm("Apakah Anda yakin ingin menghapus data ruangan ini?")) return;
+      // Konfirmasi Hapus Data Modern dengan SweetAlert2
+      const confirmResult = await Swal.fire({
+        title: 'Hapus Data?',
+        text: 'Apakah Anda yakin ingin menghapus data ruangan ini?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+      });
+
+      if (!confirmResult.isConfirmed) return;
 
       const activeProject = getSelectedProject();
 
@@ -662,13 +688,13 @@ async function submitData() {
         const result = await response.json();
 
         if (result.status === "success") {
-          alert("Data berhasil dihapus!");
+          showAlert('Terhapus!', 'Data berhasil dihapus.', 'success');
           fetchRoomData();
         } else {
-          alert("Gagal menghapus data: " + result.message);
+          showAlert('Gagal Hapus', result.message, 'error');
         }
       } catch (err) {
-        alert("Terjadi kesalahan koneksi.");
+        showAlert('Error', 'Terjadi kesalahan koneksi.', 'error');
       }
     }
 
