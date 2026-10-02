@@ -127,13 +127,6 @@
       height: 70px;
     }
 
-    /* Action Toolbar */
-    .action-bar {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
     /* Buttons */
     .btn-primary {
       width: 100%;
@@ -172,22 +165,10 @@
       font-weight: 500;
       border-radius: 6px;
       cursor: pointer;
+      margin-bottom: 12px;
     }
     .btn-reload:hover {
       background-color: #1d4ed8;
-    }
-    .btn-copy {
-      background-color: #8b5cf6;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: 500;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .btn-copy:hover {
-      background-color: #7c3aed;
     }
     .btn-edit {
       background-color: #eab308;
@@ -199,6 +180,22 @@
       font-size: 12px;
       margin-right: 4px;
     }
+    .btn-edit:hover {
+      background-color: #ca8a04;
+    }
+    .btn-duplicate {
+      background-color: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 4px;
+    }
+    .btn-duplicate:hover {
+      background-color: #7c3aed;
+    }
     .btn-delete {
       background-color: #ef4444;
       color: white;
@@ -207,6 +204,9 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
+    }
+    .btn-delete:hover {
+      background-color: #dc2626;
     }
 
     /* Table */
@@ -220,7 +220,7 @@
     }
     th, td {
       border: 1px solid #e5e7eb;
-      padding: 10px;
+      padding: 8px 10px;
       text-align: left;
     }
     th {
@@ -385,11 +385,7 @@
           <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
 
           <h3>Registered Room List</h3>
-          
-          <div class="action-bar">
-            <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
-            <button type="button" class="btn-copy" onclick="openCopyFloorModal()">Duplicate Floor</button>
-          </div>
+          <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
 
           <div class="table-responsive">
             <table>
@@ -400,7 +396,7 @@
                   <th>Room</th>
                   <th>Surface</th>
                   <th>Area (m²)</th>
-                  <th>Actions</th>
+                  <th style="min-width: 180px;">Actions</th>
                 </tr>
               </thead>
               <tbody id="roomTableBody">
@@ -424,9 +420,8 @@
     let currentUser = "";
     let currentPin  = "";
     let activeEditingRow = null;
-    let availableFloors = [];
 
-    /* --- SweetAlert2 Helper --- */
+    /* --- SweetAlert2 Notification Helper --- */
     function showAlert(title, message, iconType = 'info') {
       Swal.fire({
         title: title,
@@ -660,13 +655,7 @@
 
         if (result.status === "success" && result.data && result.data.length > 0) {
           tableBody.innerHTML = "";
-          
-          // Kumpulkan daftar nama lantai unik
-          const floorsSet = new Set();
-
           result.data.forEach(item => {
-            if (item.floor) floorsSet.add(item.floor);
-
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td>${item.building}</td>
@@ -676,99 +665,71 @@
               <td>${item.area}</td>
               <td>
                 <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${item.building}', '${item.floor}', '${item.roomID}', '${item.area}', '${item.surface}')">Edit</button>
+                <button class="btn-duplicate" type="button" onclick="duplicateSingleRoom('${item.rowIndex}', '${item.roomID}', '${item.floor}')">Duplicate</button>
                 <button class="btn-delete" type="button" onclick="deleteRow('${item.rowIndex}')">Delete</button>
               </td>
             `;
             tableBody.appendChild(tr);
           });
-
-          availableFloors = Array.from(floorsSet);
         } else {
-          availableFloors = [];
           tableBody.innerHTML = `<tr><td colspan="6" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
-        availableFloors = [];
         tableBody.innerHTML = `<tr><td colspan="6" class="empty-row">Failed to load data</td></tr>`;
       }
     }
 
-    /* --- Fitur Copy / Duplicate Floor --- */
-    async function openCopyFloorModal() {
-      if (availableFloors.length === 0) {
-        showAlert('Warning', 'No floor data available to copy.', 'warning');
-        return;
-      }
-
-      let optionsHtml = availableFloors.map(f => `<option value="${f}">${f}</option>`).join('');
-
-      const { value: formValues } = await Swal.fire({
-        title: 'Duplicate Floor Data',
-        html:
-          `<div style="text-align: left;">` +
-            `<label style="font-size: 13px; font-weight: 600;">Select Source Floor (Copy From):</label>` +
-            `<select id="swalSourceFloor" class="swal2-input" style="width: 100%; margin-top: 5px; margin-bottom: 15px;">` +
-              optionsHtml +
-            `</select>` +
-            `<label style="font-size: 13px; font-weight: 600;">Target Floor Name (Copy To):</label>` +
-            `<input id="swalTargetFloor" class="swal2-input" placeholder="e.g., 2nd Floor / Floor 2" style="width: 100%; margin-top: 5px;">` +
-          `</div>`,
-        focusConfirm: false,
+    async function duplicateSingleRoom(rowIndex, roomName, currentFloor) {
+      const { value: targetFloor } = await Swal.fire({
+        title: `Duplicate "${roomName}"`,
+        text: `Current floor: ${currentFloor}. Enter target floor name:`,
+        input: 'text',
+        inputPlaceholder: 'e.g., 2nd Floor / Floor 2',
         showCancelButton: true,
-        confirmButtonText: 'Copy Floor',
+        confirmButtonText: 'Duplicate Room',
         confirmButtonColor: '#8b5cf6',
-        preConfirm: () => {
-          const sourceFloor = document.getElementById('swalSourceFloor').value;
-          const targetFloor = document.getElementById('swalTargetFloor').value.trim();
-          if (!targetFloor) {
-            Swal.showValidationMessage('Please enter a target floor name');
-            return false;
+        cancelButtonColor: '#6b7280',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) {
+            return 'Target floor name cannot be empty!';
           }
-          return { sourceFloor, targetFloor };
         }
       });
 
-      if (formValues) {
-        executeCopyFloor(formValues.sourceFloor, formValues.targetFloor);
-      }
-    }
+      if (targetFloor) {
+        const activeProject = getSelectedProject();
 
-    async function executeCopyFloor(sourceFloor, targetFloor) {
-      const activeProject = getSelectedProject();
-
-      Swal.fire({
-        title: 'Copying Data...',
-        text: `Duplicating rooms from ${sourceFloor} to ${targetFloor}`,
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      });
-
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: "copyFloor",
-            sourceFloor: sourceFloor,
-            targetFloor: targetFloor,
-            surveyorName: currentUser,
-            userPin: currentPin,
-            newProjectName: activeProject
-          })
+        Swal.fire({
+          title: 'Duplicating Room...',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
         });
 
-        const result = await response.json();
+        try {
+          const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "duplicateRow",
+              rowIndex: rowIndex,
+              targetFloor: targetFloor.trim(),
+              surveyorName: currentUser,
+              userPin: currentPin,
+              newProjectName: activeProject
+            })
+          });
 
-        if (result.status === "success") {
-          showAlert('Success!', result.message, 'success');
-          fetchRoomData();
-        } else {
-          showAlert('Copy Failed', result.message, 'error');
+          const result = await response.json();
+
+          if (result.status === "success") {
+            showAlert('Success!', result.message, 'success');
+            fetchRoomData();
+          } else {
+            showAlert('Duplicate Failed', result.message, 'error');
+          }
+        } catch (err) {
+          showAlert('Error', 'Connection error occurred during room duplication.', 'error');
         }
-      } catch (err) {
-        showAlert('Error', 'Connection error occurred during floor duplication.', 'error');
       }
     }
 
