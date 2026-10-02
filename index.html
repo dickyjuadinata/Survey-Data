@@ -194,6 +194,25 @@
       cursor: pointer;
       font-size: 11px;
     }
+    .btn-edit {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      margin-right: 2px;
+    }
+    .btn-delete {
+      background-color: #dc2626;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+    }
     .status-badge {
       padding: 3px 6px;
       border-radius: 4px;
@@ -241,10 +260,10 @@
 
   <div class="container">
     
-    <!-- LOGIN FORM -->
+    <!-- LOGIN / REGISTER FORM -->
     <div id="loginSection">
-      <h2 style="text-align: center; margin-top: 0; color: #111827;">System Login</h2>
-      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 24px;">Enter your surveyor name and PIN to access the form.</p>
+      <h2 style="text-align: center; margin-top: 0; color: #111827;">System Portal</h2>
+      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 24px;">Enter your surveyor name and PIN to log in or register a new account.</p>
       
       <form onsubmit="event.preventDefault(); handleLogin();">
         <div class="form-group">
@@ -258,7 +277,7 @@
           <a class="forgot-link" onclick="toggleForgotForm(true)">Forgot PIN / Password?</a>
         </div>
 
-        <button type="submit" class="btn-primary" id="btnLogin">Log In</button>
+        <button type="submit" class="btn-primary" id="btnLogin">Log In / Register</button>
       </form>
     </div>
 
@@ -298,7 +317,7 @@
         <button class="btn-logout" onclick="closeAdminPanel()">Exit Admin</button>
       </div>
 
-      <p style="font-size: 13px; color: #4b5563;">Manage user approval status, block permissions, or delete accounts.</p>
+      <p style="font-size: 13px; color: #4b5563;">Manage user approval status, block permissions, or delete accounts and their Drive files.</p>
 
       <button type="button" class="btn-reload" onclick="fetchAdminUsers()">Refresh User List</button>
 
@@ -339,12 +358,12 @@
         <div id="inputTab" class="tab-content active">
           <div class="form-group">
             <label for="building">Building</label>
-            <input type="text" id="building" placeholder="e.g. Main" required>
+            <input type="text" id="building" placeholder="e.g. Main Building" required>
           </div>
 
           <div class="form-group">
             <label for="floor">Floor</label>
-            <input type="text" id="floor" placeholder="e.g. Ground" required>
+            <input type="text" id="floor" placeholder="e.g. Ground Floor" required>
           </div>
 
           <div class="form-group">
@@ -359,7 +378,7 @@
 
           <div class="form-group">
             <label for="surface">Surface Type</label>
-            <input type="text" id="surface" list="surfaceOptions" placeholder="Type surface type..." required autocomplete="off">
+            <input type="text" id="surface" list="surfaceOptions" placeholder="Select or type surface type..." required autocomplete="off">
             <datalist id="surfaceOptions">
               <option value="Ceramic"></option>
               <option value="Carpet"></option>
@@ -480,7 +499,7 @@
         const result = await response.json();
 
         if (result.status === "success") {
-          // Login sebagai Admin
+          // Admin Mode Login
           if (result.isAdmin) {
             adminKey = pinVal;
             document.getElementById("loginSection").style.display = "none";
@@ -489,7 +508,7 @@
             return;
           }
 
-          // Login sebagai User biasa
+          // Regular User Login
           currentUser = userVal;
           currentPin  = pinVal;
 
@@ -500,17 +519,17 @@
           await loadProjectDropdown();
           fetchRoomData();
         } else {
-          showAlert('Login Failed', result.message, 'error');
+          showAlert('Authentication Message', result.message, result.isNewUser ? 'info' : 'error');
         }
       } catch (err) {
         showAlert('Error', 'Failed to connect to login server.', 'error');
       } finally {
         btn.disabled = false;
-        btn.innerText = "Log In";
+        btn.innerText = "Log In / Register";
       }
     }
 
-    /* --- PANEL ADMIN FUNCTIONS --- */
+    /* --- ADMIN PANEL FUNCTIONS --- */
     function closeAdminPanel() {
       adminKey = "";
       document.getElementById("adminSection").style.display = "none";
@@ -578,8 +597,8 @@
 
     async function deleteUser(targetUser) {
       const confirmResult = await Swal.fire({
-        title: 'Delete User?',
-        text: `Are you sure you want to permanently delete user "${targetUser}"?`,
+        title: 'Delete User & Files?',
+        text: `Are you sure you want to permanently delete user "${targetUser}" and all associated Google Drive spreadsheets?`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#dc2626',
@@ -689,7 +708,7 @@
         if (result.status === "success") {
           dropdown.innerHTML = `<option value="">-- Select Project --</option>`;
           if (result.projects.length === 0) {
-            dropdown.innerHTML = `<option value="">-- No Projects Found (Type New Name) --</option>`;
+            dropdown.innerHTML = `<option value="">-- No Projects Found (Type New Name Below) --</option>`;
           } else {
             result.projects.forEach(proj => {
               const opt = document.createElement("option");
