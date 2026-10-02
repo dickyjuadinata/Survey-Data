@@ -152,21 +152,6 @@
       cursor: pointer;
       margin-top: 8px;
     }
-    .btn-admin {
-      width: 100%;
-      background-color: #1e293b;
-      color: white;
-      border: none;
-      padding: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-top: 14px;
-    }
-    .btn-admin:hover {
-      background-color: #0f172a;
-    }
     .btn-reload {
       background-color: #2563eb;
       color: white;
@@ -191,6 +176,16 @@
       margin-right: 2px;
     }
     .btn-block {
+      background-color: #eab308;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      margin-right: 2px;
+    }
+    .btn-delete-user {
       background-color: #dc2626;
       color: white;
       border: none;
@@ -264,7 +259,6 @@
         </div>
 
         <button type="submit" class="btn-primary" id="btnLogin">Log In</button>
-        <button type="button" class="btn-admin" onclick="openAdminModal()">Open Admin Panel</button>
       </form>
     </div>
 
@@ -304,7 +298,7 @@
         <button class="btn-logout" onclick="closeAdminPanel()">Exit Admin</button>
       </div>
 
-      <p style="font-size: 13px; color: #4b5563;">Manage user approval status and block/unblock permissions.</p>
+      <p style="font-size: 13px; color: #4b5563;">Manage user approval status, block permissions, or delete accounts.</p>
 
       <button type="button" class="btn-reload" onclick="fetchAdminUsers()">Refresh User List</button>
 
@@ -486,6 +480,16 @@
         const result = await response.json();
 
         if (result.status === "success") {
+          // Login sebagai Admin
+          if (result.isAdmin) {
+            adminKey = pinVal;
+            document.getElementById("loginSection").style.display = "none";
+            document.getElementById("adminSection").style.display = "block";
+            fetchAdminUsers();
+            return;
+          }
+
+          // Login sebagai User biasa
           currentUser = userVal;
           currentPin  = pinVal;
 
@@ -507,28 +511,12 @@
     }
 
     /* --- PANEL ADMIN FUNCTIONS --- */
-    async function openAdminModal() {
-      const { value: inputKey } = await Swal.fire({
-        title: 'Admin Key Required',
-        input: 'password',
-        inputLabel: 'Enter Admin Secret Master Key',
-        inputPlaceholder: 'Enter key...',
-        showCancelButton: true,
-        confirmButtonColor: '#1e293b'
-      });
-
-      if (inputKey) {
-        adminKey = inputKey;
-        document.getElementById("loginSection").style.display = "none";
-        document.getElementById("adminSection").style.display = "block";
-        fetchAdminUsers();
-      }
-    }
-
     function closeAdminPanel() {
       adminKey = "";
       document.getElementById("adminSection").style.display = "none";
       document.getElementById("loginSection").style.display = "block";
+      document.getElementById("loginUser").value = "";
+      document.getElementById("loginPin").value = "";
     }
 
     async function fetchAdminUsers() {
@@ -549,6 +537,7 @@
               <td>
                 ${u.status !== 'APPROVED' ? `<button class="btn-approve" onclick="changeStatus('${u.username}', 'APPROVED')">Approve</button>` : ''}
                 ${u.status !== 'BLOCKED' ? `<button class="btn-block" onclick="changeStatus('${u.username}', 'BLOCKED')">Block</button>` : ''}
+                <button class="btn-delete-user" onclick="deleteUser('${u.username}')">Delete</button>
               </td>
             `;
             tableBody.appendChild(tr);
@@ -584,6 +573,43 @@
         }
       } catch (err) {
         showAlert('Error', 'Connection failed.', 'error');
+      }
+    }
+
+    async function deleteUser(targetUser) {
+      const confirmResult = await Swal.fire({
+        title: 'Delete User?',
+        text: `Are you sure you want to permanently delete user "${targetUser}"?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, Delete Permanently!',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (!confirmResult.isConfirmed) return;
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "deleteUser",
+            targetUser: targetUser,
+            masterKey: adminKey
+          })
+        });
+
+        const result = await response.json();
+        if (result.status === "success") {
+          showAlert('Deleted', result.message, 'success');
+          fetchAdminUsers();
+        } else {
+          showAlert('Error', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection failed while deleting user.', 'error');
       }
     }
 
