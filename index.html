@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Room Data System & Admin Panel</title>
 
-  <!-- SweetAlert2 CSS & JS -->
+  <!-- SweetAlert2 CSS & JS (CDN dengan Fallback Offline) -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
@@ -31,6 +31,29 @@
       padding: 28px;
     }
     
+    /* Connection Status Banner */
+    .net-status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .net-status.offline {
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+      display: block;
+    }
+    .net-status.syncing {
+      background-color: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #3b82f6;
+      display: block;
+    }
+
     /* Header Section */
     .header-bar {
       display: flex;
@@ -222,6 +245,19 @@
     .btn-download:hover {
       background-color: #047857;
     }
+    .btn-sync {
+      background-color: #d97706;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-sync:hover {
+      background-color: #b45309;
+    }
     .btn-edit {
       background-color: #eab308;
       color: white;
@@ -293,12 +329,24 @@
       height: 16px;
       cursor: pointer;
     }
+    .offline-tag {
+      background-color: #fef3c7;
+      color: #b45309;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-left: 6px;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
     
+    <!-- Status Banner untuk Koneksi/Sinkronisasi -->
+    <div id="netStatusBanner" class="net-status"></div>
+
     <!-- LOGIN FORM -->
     <div id="loginSection">
       <h2 style="text-align: center; margin-top: 0; color: #111827;">System Login</h2>
@@ -470,6 +518,7 @@
           
           <div class="action-toolbar">
             <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
+            <button type="button" class="btn-sync" id="btnManualSync" onclick="syncOfflineQueue()">Sync Offline Data</button>
             <button type="button" class="btn-duplicate-main" onclick="duplicateSelectedRooms()">Duplicate Selected</button>
             <button type="button" class="btn-delete-selected" onclick="deleteSelectedRooms()">Delete Selected</button>
             <button type="button" class="btn-download" onclick="downloadSheet()">Download Sheet (XLSX)</button>
@@ -511,6 +560,85 @@
     let currentPin  = "";
     let activeEditingRow = null;
 
+    // OTOMATISASI LOKAL & PENANGANAN OFFLINE
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+
+    function updateNetworkStatus() {
+      const banner = document.getElementById("netStatusBanner");
+      const queue = getOfflineQueue();
+
+      if (!navigator.onLine) {
+        banner.className = "net-status offline";
+        banner.innerText = `Mode Offline: Terdeteksi ${queue.length} data antrean yang tersimpan di HP/Browser.`;
+      } else {
+        if (queue.length > 0) {
+          syncOfflineQueue();
+        } else {
+          banner.style.display = "none";
+        }
+      }
+    }
+
+    function getOfflineQueue() {
+      return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]");
+    }
+
+    function saveToOfflineQueue(payload) {
+      const queue = getOfflineQueue();
+      payload.tempId = "OFFLINE_" + Date.now();
+      queue.push(payload);
+      localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
+      updateNetworkStatus();
+    }
+
+    async function syncOfflineQueue() {
+      if (!navigator.onLine) {
+        showAlert('Info Offline', 'Anda masih dalam keadaan offline. Hubungkan ke internet untuk melakukan sinkronisasi.', 'warning');
+        return;
+      }
+
+      const queue = getOfflineQueue();
+      if (queue.length === 0) {
+        updateNetworkStatus();
+        return;
+      }
+
+      const banner = document.getElementById("netStatusBanner");
+      banner.className = "net-status syncing";
+      banner.innerText = `Sedang mengunggah ${queue.length} data antrean offline ke Google Sheets...`;
+
+      let successCount = 0;
+      let remainingQueue = [];
+
+      for (let item of queue) {
+        try {
+          const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(item)
+          });
+          const result = await response.json();
+          if (result.status === "success") {
+            successCount++;
+          } else {
+            remainingQueue.push(item);
+          }
+        } catch (err) {
+          remainingQueue.push(item);
+        }
+      }
+
+      localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
+
+      if (successCount > 0) {
+        showAlert('Sinkronisasi Sukses!', `${successCount} data offline berhasil diunggah ke Google Sheets.`, 'success');
+        fetchRoomData();
+      }
+
+      updateNetworkStatus();
+    }
+
     function escapeHtml(text) {
       if (!text) return "";
       return String(text)
@@ -522,13 +650,17 @@
     }
 
     function showAlert(title, message, iconType = 'info') {
-      Swal.fire({
-        title: title,
-        text: message,
-        icon: iconType,
-        confirmButtonColor: '#16a34a',
-        confirmButtonText: 'OK'
-      });
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: title,
+          text: message,
+          icon: iconType,
+          confirmButtonColor: '#16a34a',
+          confirmButtonText: 'OK'
+        });
+      } else {
+        alert(`${title}: ${message}`);
+      }
     }
 
     function toggleForgotForm(showForgot) {
@@ -544,6 +676,26 @@
       if (!userVal || !pinVal) {
         showAlert('Warning', 'Username and PIN are required!', 'warning');
         return;
+      }
+
+      // Mode offline login bypass (menggunakan kredensial lokal terkahir)
+      if (!navigator.onLine) {
+        const lastUser = localStorage.getItem("last_logged_user");
+        const lastPin  = localStorage.getItem("last_logged_pin");
+
+        if (lastUser && lastPin && lastUser.toLowerCase() === userVal.toLowerCase() && lastPin === pinVal) {
+          currentUser = userVal;
+          currentPin  = pinVal;
+          document.getElementById("loginSection").style.display = "none";
+          document.getElementById("displayUser").innerText = "User: " + currentUser + " (Offline Mode)";
+          document.getElementById("appSection").style.display = "block";
+          updateNetworkStatus();
+          fetchRoomData();
+          return;
+        } else {
+          showAlert('Offline Login', 'Anda sedang offline. Gunakan nama pengguna dan PIN yang pernah dipakai login sebelumnya di perangkat ini.', 'error');
+          return;
+        }
       }
 
       btn.disabled = true;
@@ -566,9 +718,12 @@
           currentUser = userVal;
           currentPin  = pinVal;
 
+          // Simpan kredensial lokal untuk dukungan login saat offline
+          localStorage.setItem("last_logged_user", currentUser);
+          localStorage.setItem("last_logged_pin", currentPin);
+
           document.getElementById("loginSection").style.display = "none";
 
-          // CEK JIKA USER ADALAH ADMIN
           if (result.isAdmin) {
             document.getElementById("displayAdmin").innerText = `Admin: ${currentUser}`;
             document.getElementById("adminSection").style.display = "block";
@@ -579,6 +734,7 @@
             await loadProjectDropdown();
             fetchRoomData();
           }
+          updateNetworkStatus();
         } else {
           showAlert('Login Failed', result.message, 'error');
         }
@@ -775,6 +931,11 @@
       const dropdown = document.getElementById("projectName");
       dropdown.innerHTML = `<option value="">Loading projects...</option>`;
 
+      if (!navigator.onLine) {
+        dropdown.innerHTML = `<option value="">-- Single Project Mode (Offline) --</option>`;
+        return;
+      }
+
       try {
         const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
         const result = await response.json();
@@ -830,6 +991,19 @@
         notes: document.getElementById("notes").value
       };
 
+      // HANDLING MODE OFFLINE SINKRONISASI LOKAL
+      if (!navigator.onLine) {
+        saveToOfflineQueue(payload);
+        showAlert('Tersimpan Lokal (Offline)', 'Koneksi internet tidak tersedia. Data ruangan tersimpan di memori HP/Browser dan akan diunggah otomatis saat kembali online.', 'warning');
+        
+        document.getElementById("roomID").value = "";
+        document.getElementById("area").value = "";
+        document.getElementById("surface").value = "";
+        document.getElementById("notes").value = "";
+        fetchRoomData();
+        return;
+      }
+
       try {
         btnSave.disabled = true;
         btnSave.innerText = "Saving Data...";
@@ -858,7 +1032,10 @@
           showAlert('Save Failed', result.message, 'error');
         }
       } catch (err) {
-        showAlert('Error', 'Connection error occurred while saving data.', 'error');
+        // Fallback jika jaringan putus saat request berjalan
+        saveToOfflineQueue(payload);
+        showAlert('Tersimpan Lokal', 'Koneksi terputus. Data dimasukkan ke antrean offline.', 'warning');
+        fetchRoomData();
       } finally {
         btnSave.disabled = false;
         btnSave.innerText = "Save Room Data";
@@ -879,12 +1056,57 @@
       const activeProject = getSelectedProject();
       tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
 
+      // Jika Offline, baca data lokal yang tersimpan
+      if (!navigator.onLine) {
+        const queue = getOfflineQueue();
+        tableBody.innerHTML = "";
+        
+        if (queue.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Tidak ada koneksi internet. Belum ada antrean data offline baru.</td></tr>`;
+          return;
+        }
+
+        queue.forEach(item => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="center-col">-</td>
+            <td>${escapeHtml(item.building)}</td>
+            <td>${escapeHtml(item.floor)}</td>
+            <td>${escapeHtml(item.roomID)} <span class="offline-tag">Offline Queue</span></td>
+            <td>${escapeHtml(item.area)}</td>
+            <td>${escapeHtml(item.surface)}</td>
+            <td>${escapeHtml(item.notes) || "-"}</td>
+            <td style="text-align: center;">-</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+        return;
+      }
+
       try {
         const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
         const result = await response.json();
 
         if (result.status === "success" && result.data && result.data.length > 0) {
           tableBody.innerHTML = "";
+          
+          // Tampilkan antrean offline jika ada di paling atas
+          const queue = getOfflineQueue();
+          queue.forEach(item => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td class="center-col">-</td>
+              <td>${escapeHtml(item.building)}</td>
+              <td>${escapeHtml(item.floor)}</td>
+              <td>${escapeHtml(item.roomID)} <span class="offline-tag">Pending Upload</span></td>
+              <td>${escapeHtml(item.area)}</td>
+              <td>${escapeHtml(item.surface)}</td>
+              <td>${escapeHtml(item.notes) || "-"}</td>
+              <td style="text-align: center;">-</td>
+            `;
+            tableBody.appendChild(tr);
+          });
+
           result.data.forEach(item => {
             const tr = document.createElement("tr");
             
@@ -913,7 +1135,7 @@
           tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
-        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Failed to load data</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Failed to load data from server</td></tr>`;
       }
     }
 
@@ -928,7 +1150,6 @@
 
       const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
 
-      // SweetAlert2 dengan 2 Input: Target Building & Target Floor
       const { value: formValues } = await Swal.fire({
         title: `Duplicate ${selectedRows.length} Room(s)`,
         html:
