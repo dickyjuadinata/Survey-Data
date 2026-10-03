@@ -27,7 +27,7 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       width: 100%;
-      max-width: 880px;
+      max-width: 920px;
       padding: 28px;
     }
     
@@ -270,7 +270,7 @@
       background-color: #dc2626;
     }
 
-    /* Table */
+    /* Table & Grouping Styles */
     .table-responsive {
       overflow-x: auto;
     }
@@ -288,6 +288,15 @@
       background-color: #f9fafb;
       font-weight: 600;
       color: #4b5563;
+    }
+    .group-header-row {
+      background-color: #f3f4f6;
+      font-weight: bold;
+      color: #1f2937;
+    }
+    .group-header-row td {
+      padding: 6px 10px;
+      border-top: 2px solid #d1d5db;
     }
     .empty-row {
       text-align: center;
@@ -436,19 +445,19 @@
         <div id="inputTab" class="tab-content active">
           <div class="form-group">
             <label for="building">Building</label>
-            <input type="text" id="building" list="buildingOptions" placeholder="e.g., Main / Annex" required autocomplete="off">
+            <input type="text" id="building" list="buildingOptions" placeholder="e.g., Main" required autocomplete="off">
             <datalist id="buildingOptions"></datalist>
           </div>
 
           <div class="form-group">
             <label for="floor">Floor</label>
-            <input type="text" id="floor" list="floorOptions" placeholder="e.g., Ground / 2nd" required autocomplete="off">
+            <input type="text" id="floor" list="floorOptions" placeholder="e.g., Ground" required autocomplete="off">
             <datalist id="floorOptions"></datalist>
           </div>
 
           <div class="form-group">
             <label for="roomID">Room ID / Room Name</label>
-            <input type="text" id="roomID" list="roomIDOptions" placeholder="e.g., Lobby / Security" required autocomplete="off">
+            <input type="text" id="roomID" list="roomIDOptions" placeholder="e.g., Lobby" required autocomplete="off">
             <datalist id="roomIDOptions"></datalist>
           </div>
 
@@ -559,7 +568,7 @@
 
       if (!navigator.onLine) {
         banner.className = "net-status offline";
-        banner.innerText = `Mode Offline: Terdeteksi ${queue.length} antrean aksi offline di perangkat Anda.`;
+        banner.innerText = `Mode Offline: Terdeteksi ${queue.length} antrean aksi offline di perangkat Anda. Data tersimpan di memori lokal.`;
       } else {
         if (queue.length > 0) {
           syncOfflineQueue();
@@ -592,35 +601,30 @@
       const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
       allCache[projectName] = dataArray;
       localStorage.setItem("cached_room_data", JSON.stringify(allCache));
+      updateSuggestions(dataArray);
     }
 
-    /* UPDATE AUTO-SUGGESTIONS (DATALIST) DARI DATA TERPANTAU */
-    function updateDatalists(dataList) {
-      if (!dataList || !Array.isArray(dataList)) return;
+    /* FUNGSI SUGGESTIONS/AUTOCOMPLETE */
+    function updateSuggestions(dataArray) {
+      if (!dataArray || !Array.isArray(dataArray)) return;
 
-      const buildings = new Set();
-      const floors = new Set();
-      const roomIDs = new Set();
-
-      dataList.forEach(item => {
-        if (item.building) buildings.add(item.building);
-        if (item.floor) floors.add(item.floor);
-        if (item.roomID) roomIDs.add(item.roomID);
-      });
+      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))];
+      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))];
+      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))];
 
       populateDatalist("buildingOptions", buildings);
       populateDatalist("floorOptions", floors);
       populateDatalist("roomIDOptions", roomIDs);
     }
 
-    function populateDatalist(elementId, valueSet) {
+    function populateDatalist(elementId, values) {
       const datalist = document.getElementById(elementId);
       if (!datalist) return;
       datalist.innerHTML = "";
-      valueSet.forEach(val => {
-        const option = document.createElement("option");
-        option.value = val;
-        datalist.appendChild(option);
+      values.forEach(val => {
+        const opt = document.createElement("option");
+        opt.value = val;
+        datalist.appendChild(opt);
       });
     }
 
@@ -1010,12 +1014,12 @@
         surveyorName: currentUser,
         userPin: currentPin,
         newProjectName: activeProject,
-        building: document.getElementById("building").value,
-        floor: document.getElementById("floor").value,
-        roomID: document.getElementById("roomID").value,
-        area: document.getElementById("area").value,
-        surface: document.getElementById("surface").value,
-        notes: document.getElementById("notes").value
+        building: document.getElementById("building").value.trim(),
+        floor: document.getElementById("floor").value.trim(),
+        roomID: document.getElementById("roomID").value.trim(),
+        area: document.getElementById("area").value.trim(),
+        surface: document.getElementById("surface").value.trim(),
+        notes: document.getElementById("notes").value.trim()
       };
 
       if (!navigator.onLine) {
@@ -1023,10 +1027,19 @@
         
         // Optimistic UI Update untuk Cache Lokal
         const localData = getCachedRoomData(activeProject);
-        localData.push({ ...payload, isOfflineDraft: true, rowIndex: "OFFLINE_" + Date.now() });
+        
+        if (activeEditingRow) {
+          const idx = localData.findIndex(item => String(item.rowIndex) === String(activeEditingRow));
+          if (idx !== -1) {
+            localData[idx] = { ...payload, isOfflineDraft: true };
+          }
+        } else {
+          localData.push({ ...payload, isOfflineDraft: true, rowIndex: "OFFLINE_" + Date.now() });
+        }
+        
         setCachedRoomData(activeProject, localData);
 
-        showAlert('Tersimpan Lokal (Offline)', 'Koneksi internet tidak tersedia. Data ruangan tersimpan secara lokal dan akan disinkronkan saat online.', 'warning');
+        showAlert('Tersimpan Lokal (Offline)', 'Data ruangan tersimpan secara lokal dan akan disinkronkan saat online.', 'warning');
         
         document.getElementById("roomID").value = "";
         document.getElementById("area").value = "";
@@ -1079,7 +1092,7 @@
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     }
 
-    /* MENAMPILKAN DATA SECARA HYBRID (ONLINE & OFFLINE CACHE) */
+    /* MENAMPILKAN DATA DENGAN PENGELOMPOKAN (GROUPING BY BUILDING & FLOOR) */
     async function fetchRoomData() {
       const tableBody = document.getElementById("roomTableBody");
       const selectAllCb = document.getElementById("selectAllCheckbox");
@@ -1088,27 +1101,23 @@
       const activeProject = getSelectedProject();
       tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
 
-      // OFFLINE MODE: BACA DATA CACHE PERANGKAT LOKAL
       if (!navigator.onLine) {
         const cachedData = getCachedRoomData(activeProject);
         renderRoomTable(cachedData, true);
         return;
       }
 
-      // ONLINE MODE: AMBIL DARI GOOGLE SHEETS SERVER
       try {
         const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
         const result = await response.json();
 
         if (result.status === "success" && result.data) {
-          // Perbaharui Cache Perangkat Lokal
           setCachedRoomData(activeProject, result.data);
           renderRoomTable(result.data, false);
         } else {
           tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
-        // Fallback jika fetch gagal walau browser mengindikasikan online
         const cachedData = getCachedRoomData(activeProject);
         renderRoomTable(cachedData, true);
       }
@@ -1123,25 +1132,24 @@
         return;
       }
 
-      // Update Auto-Suggestions dari data yang berhasil dibaca
-      updateDatalists(dataList);
+      updateSuggestions(dataList);
 
-      // PENGELOMPOKAN OTOMATIS: Sort berdasarkan Building -> Floor -> Room ID
-      dataList.sort((a, b) => {
-        const bA = (a.building || "").toString().toLowerCase();
-        const bB = (b.building || "").toString().toLowerCase();
-        if (bA !== bB) return bA.localeCompare(bB);
-
-        const fA = (a.floor || "").toString().toLowerCase();
-        const fB = (b.floor || "").toString().toLowerCase();
-        if (fA !== fB) return fA.localeCompare(fB);
-
-        const rA = (a.roomID || "").toString().toLowerCase();
-        const rB = (b.roomID || "").toString().toLowerCase();
-        return rA.localeCompare(rB);
-      });
+      let currentGroupKey = "";
 
       dataList.forEach(item => {
+        const building = item.building || "Unspecified Building";
+        const floor    = item.floor || "Unspecified Floor";
+        const groupKey = `${building} - ${floor}`;
+
+        // Jika terdapat kelompok Building & Floor baru, tampilkan Header Baris Kelompok
+        if (groupKey !== currentGroupKey) {
+          currentGroupKey = groupKey;
+          const groupTr = document.createElement("tr");
+          groupTr.className = "group-header-row";
+          groupTr.innerHTML = `<td colspan="8">🏢 Building: ${escapeHtml(building)} &nbsp;|&nbsp; 📐 Floor: ${escapeHtml(floor)}</td>`;
+          tableBody.appendChild(groupTr);
+        }
+
         const tr = document.createElement("tr");
         
         const escBuilding = escapeHtml(item.building);
@@ -1170,7 +1178,7 @@
       });
     }
 
-    /* DUPLICATE MULTIPLE ROOMS (HYBRID ONLINE & OFFLINE) */
+    /* DUPLICATE MULTIPLE ROOMS (SUGGESTIONS DITERAPKAN) */
     async function duplicateSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
@@ -1180,14 +1188,24 @@
       }
 
       const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
+      const activeProject = getSelectedProject();
+      const currentCache = getCachedRoomData(activeProject);
+
+      const buildingsList = [...new Set(currentCache.map(i => i.building).filter(Boolean))];
+      const floorsList    = [...new Set(currentCache.map(i => i.floor).filter(Boolean))];
+
+      const buildingOptionsHtml = buildingsList.map(b => `<option value="${b}">`).join('');
+      const floorOptionsHtml    = floorsList.map(f => `<option value="${f}">`).join('');
 
       const { value: formValues } = await Swal.fire({
         title: `Duplicate ${selectedRows.length} Room(s)`,
         html:
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
-          '<input id="swal-input-building" class="swal2-input" list="buildingOptions" placeholder="e.g., Penunjang / Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">' +
+          `<input id="swal-input-building" list="dupBuildingOpts" class="swal2-input" placeholder="e.g., Penunjang / Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
+          `<datalist id="dupBuildingOpts">${buildingOptionsHtml}</datalist>` +
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
-          '<input id="swal-input-floor" class="swal2-input" list="floorOptions" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">',
+          `<input id="swal-input-floor" list="dupFloorOpts" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">` +
+          `<datalist id="dupFloorOpts">${floorOptionsHtml}</datalist>`,
         focusConfirm: false,
         showCancelButton: true,
         confirmButtonText: 'Duplicate Rooms',
@@ -1210,7 +1228,6 @@
       });
 
       if (formValues) {
-        const activeProject = getSelectedProject();
         const payload = {
           action: "duplicateSelected",
           selectedRows: selectedRows,
@@ -1221,14 +1238,10 @@
           newProjectName: activeProject
         };
 
-        // KONDISI OFFLINE DUPLIKASI
         if (!navigator.onLine) {
           saveToOfflineQueue(payload);
 
-          // Lakukan duplikasi pada data cache lokal
-          const currentCache = getCachedRoomData(activeProject);
           const duplicatedItems = [];
-
           currentCache.forEach(item => {
             if (selectedRows.includes(String(item.rowIndex))) {
               duplicatedItems.push({
@@ -1242,12 +1255,11 @@
           });
 
           setCachedRoomData(activeProject, currentCache.concat(duplicatedItems));
-          showAlert('Tersimpan Lokal', `${duplicatedItems.length} ruangan berhasil diduplikasi secara offline dan tersimpan di memori lokal.`, 'warning');
+          showAlert('Tersimpan Lokal', `${duplicatedItems.length} ruangan berhasil diduplikasi secara offline.`, 'warning');
           fetchRoomData();
           return;
         }
 
-        // KONDISI ONLINE DUPLIKASI
         Swal.fire({
           title: 'Duplicating Rooms...',
           allowOutsideClick: false,
@@ -1277,7 +1289,7 @@
       }
     }
 
-    /* DELETE MULTIPLE ROOMS (HYBRID ONLINE & OFFLINE) */
+    /* DELETE MULTIPLE ROOMS */
     async function deleteSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
@@ -1309,21 +1321,18 @@
           newProjectName: activeProject
         };
 
-        // KONDISI OFFLINE DELETE
         if (!navigator.onLine) {
           saveToOfflineQueue(payload);
 
-          // Hapus item terkait dari data cache lokal
           let currentCache = getCachedRoomData(activeProject);
           currentCache = currentCache.filter(item => !selectedRows.includes(String(item.rowIndex)));
           setCachedRoomData(activeProject, currentCache);
 
-          showAlert('Tersimpan Lokal', `${selectedRows.length} ruangan dihapus dari tampilan lokal dan antrean sinkronisasi dibuat.`, 'warning');
+          showAlert('Tersimpan Lokal', `${selectedRows.length} ruangan dihapus secara lokal dan antrean sinkronisasi dibuat.`, 'warning');
           fetchRoomData();
           return;
         }
 
-        // KONDISI ONLINE DELETE
         Swal.fire({
           title: 'Deleting Rooms...',
           allowOutsideClick: false,
