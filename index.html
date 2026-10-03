@@ -340,7 +340,7 @@
 
   <div class="container">
     
-    <!-- Status Banner untuk Koneksi/Sinkronisasi -->
+    <!-- Status Banner for Connection / Sync -->
     <div id="netStatusBanner" class="net-status"></div>
 
     <!-- LOGIN FORM -->
@@ -367,7 +367,7 @@
     <!-- RESET PIN FORM -->
     <div id="forgotSection" style="display: none;">
       <h2 style="text-align: center; margin-top: 0; color: #111827;">Reset PIN / Password</h2>
-      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 20px;">Request the <b>Admin Master Key</b> from Administrator to reset your PIN.</p>
+      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 20px;">Request the Master Key from Administrator to reset your PIN.</p>
       
       <form onsubmit="event.preventDefault(); handleResetPin();">
         <div class="form-group">
@@ -485,7 +485,7 @@
               <option value="Epoxy"></option>
               <option value="Metal"></option>
               <option value="Stone"></option>
-              <option value="Cement/ Concrete"></option>
+              <option value="Cement / Concrete"></option>
             </datalist>
           </div>
 
@@ -557,8 +557,17 @@
     let currentUser = "";
     let currentPin  = "";
     let activeEditingRow = null;
+    let isSyncing = false;
 
-    // OTOMATISASI LOKAL & PENANGANAN OFFLINE
+    // Capitalize First Letter of Each Word (Title Case)
+    function toTitleCase(str) {
+      if (!str) return "";
+      return str.replace(/\w\S*/g, function(txt) {
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+      });
+    }
+
+    // Network Status Event Listeners
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 
@@ -568,7 +577,7 @@
 
       if (!navigator.onLine) {
         banner.className = "net-status offline";
-        banner.innerText = `Mode Offline: Terdeteksi ${queue.length} antrean aksi offline di perangkat Anda. Data tersimpan di memori lokal.`;
+        banner.innerText = `Offline Mode: ${queue.length} pending action(s) queued on device.`;
       } else {
         if (queue.length > 0) {
           syncOfflineQueue();
@@ -604,7 +613,7 @@
       updateSuggestions(dataArray);
     }
 
-    /* FUNGSI SUGGESTIONS/AUTOCOMPLETE */
+    /* SUGGESTIONS & AUTOCOMPLETE */
     function updateSuggestions(dataArray) {
       if (!dataArray || !Array.isArray(dataArray)) return;
 
@@ -629,7 +638,7 @@
     }
 
     async function syncOfflineQueue() {
-      if (!navigator.onLine) return;
+      if (!navigator.onLine || isSyncing) return;
 
       const queue = getOfflineQueue();
       if (queue.length === 0) {
@@ -637,9 +646,13 @@
         return;
       }
 
+      isSyncing = true;
       const banner = document.getElementById("netStatusBanner");
       banner.className = "net-status syncing";
-      banner.innerText = `Sedang mengunggah ${queue.length} antrean aksi offline ke server...`;
+      banner.innerText = `Uploading ${queue.length} offline action(s) to server...`;
+
+      // Clear queue beforehand to prevent duplicate triggers
+      localStorage.removeItem("offline_survey_queue");
 
       let successCount = 0;
       let remainingQueue = [];
@@ -662,10 +675,14 @@
         }
       }
 
-      localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
+      if (remainingQueue.length > 0) {
+        localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
+      }
+
+      isSyncing = false;
 
       if (successCount > 0) {
-        showAlert('Sinkronisasi Sukses!', `${successCount} perubahan offline berhasil diunggah.`, 'success');
+        showAlert('Sync Successful!', `${successCount} offline change(s) uploaded successfully.`, 'success');
         fetchRoomData();
       }
 
@@ -725,7 +742,7 @@
           fetchRoomData();
           return;
         } else {
-          showAlert('Offline Login', 'Anda sedang offline. Gunakan nama pengguna dan PIN yang pernah dipakai login sebelumnya.', 'error');
+          showAlert('Offline Login', 'You are offline. Please use credentials previously logged in on this device.', 'error');
           return;
         }
       }
@@ -831,7 +848,7 @@
       document.getElementById("loginSection").style.display = "block";
     }
 
-    /* OPERASIONAL ADMIN PANEL */
+    /* ADMIN PANEL FUNCTIONS */
     async function loadAdminUsers() {
       const tbody = document.getElementById("adminUserTableBody");
       tbody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading users...</td></tr>`;
@@ -916,7 +933,7 @@
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, Delete All!'
+        confirmButtonText: 'Yes, Delete All'
       });
 
       if (!confirmResult.isConfirmed) return;
@@ -945,7 +962,7 @@
       }
     }
 
-    /* OPERASIONAL SURVEYOR TAB & DASHBOARD */
+    /* SURVEYOR TAB & DASHBOARD FUNCTIONS */
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -996,7 +1013,7 @@
     }
 
     function getSelectedProject() {
-      const customProj = document.getElementById("newProjectName").value.trim();
+      const customProj = toTitleCase(document.getElementById("newProjectName").value.trim());
       const selectProj = document.getElementById("projectName").value.trim();
 
       if (customProj !== "") return customProj;
@@ -1008,24 +1025,30 @@
       const btnSave = document.getElementById("btnSave");
       const activeProject = getSelectedProject();
 
+      const buildingInput = toTitleCase(document.getElementById("building").value.trim());
+      const floorInput    = toTitleCase(document.getElementById("floor").value.trim());
+      const roomIDInput   = toTitleCase(document.getElementById("roomID").value.trim());
+      const surfaceInput  = toTitleCase(document.getElementById("surface").value.trim());
+      const notesInput    = toTitleCase(document.getElementById("notes").value.trim());
+
       const payload = {
         action: activeEditingRow ? "editRow" : "create",
         rowIndex: activeEditingRow,
         surveyorName: currentUser,
         userPin: currentPin,
         newProjectName: activeProject,
-        building: document.getElementById("building").value.trim(),
-        floor: document.getElementById("floor").value.trim(),
-        roomID: document.getElementById("roomID").value.trim(),
+        building: buildingInput,
+        floor: floorInput,
+        roomID: roomIDInput,
         area: document.getElementById("area").value.trim(),
-        surface: document.getElementById("surface").value.trim(),
-        notes: document.getElementById("notes").value.trim()
+        surface: surfaceInput,
+        notes: notesInput
       };
 
       if (!navigator.onLine) {
         saveToOfflineQueue(payload);
         
-        // Optimistic UI Update untuk Cache Lokal
+        // Optimistic UI Update for Local Cache
         const localData = getCachedRoomData(activeProject);
         
         if (activeEditingRow) {
@@ -1039,13 +1062,15 @@
         
         setCachedRoomData(activeProject, localData);
 
-        showAlert('Tersimpan Lokal (Offline)', 'Data ruangan tersimpan secara lokal dan akan disinkronkan saat online.', 'warning');
+        showAlert('Saved Locally (Offline)', 'Room data saved to local storage and queued for online sync.', 'warning');
         
         document.getElementById("roomID").value = "";
         document.getElementById("area").value = "";
         document.getElementById("surface").value = "";
         document.getElementById("notes").value = "";
         activeEditingRow = null;
+        
+        // Render updated list immediately on offline submission
         fetchRoomData();
         return;
       }
@@ -1079,7 +1104,7 @@
         }
       } catch (err) {
         saveToOfflineQueue(payload);
-        showAlert('Tersimpan Lokal', 'Koneksi terputus. Data dimasukkan ke antrean offline.', 'warning');
+        showAlert('Saved Locally', 'Connection lost. Action queued for offline sync.', 'warning');
         fetchRoomData();
       } finally {
         btnSave.disabled = false;
@@ -1092,20 +1117,21 @@
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     }
 
-    /* MENAMPILKAN DATA DENGAN PENGELOMPOKAN (GROUPING BY BUILDING & FLOOR) */
+    /* RENDER ROOM DATA WITH GROUPING BY BUILDING & FLOOR */
     async function fetchRoomData() {
       const tableBody = document.getElementById("roomTableBody");
       const selectAllCb = document.getElementById("selectAllCheckbox");
       if (selectAllCb) selectAllCb.checked = false;
 
       const activeProject = getSelectedProject();
-      tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
 
       if (!navigator.onLine) {
         const cachedData = getCachedRoomData(activeProject);
         renderRoomTable(cachedData, true);
         return;
       }
+
+      tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
 
       try {
         const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
@@ -1128,7 +1154,7 @@
       tableBody.innerHTML = "";
 
       if (!dataList || dataList.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Tidak ada data ruangan untuk ditampilkan.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
         return;
       }
 
@@ -1141,12 +1167,12 @@
         const floor    = item.floor || "Unspecified Floor";
         const groupKey = `${building} - ${floor}`;
 
-        // Jika terdapat kelompok Building & Floor baru, tampilkan Header Baris Kelompok
+        // Render Group Header Row when new Building & Floor combination appears
         if (groupKey !== currentGroupKey) {
           currentGroupKey = groupKey;
           const groupTr = document.createElement("tr");
           groupTr.className = "group-header-row";
-          groupTr.innerHTML = `<td colspan="8">🏢 Building: ${escapeHtml(building)} &nbsp;|&nbsp; 📐 Floor: ${escapeHtml(floor)}</td>`;
+          groupTr.innerHTML = `<td colspan="8">Building: ${escapeHtml(building)} &nbsp;|&nbsp; Floor: ${escapeHtml(floor)}</td>`;
           tableBody.appendChild(groupTr);
         }
 
@@ -1178,7 +1204,7 @@
       });
     }
 
-    /* DUPLICATE MULTIPLE ROOMS (SUGGESTIONS DITERAPKAN) */
+    /* DUPLICATE MULTIPLE ROOMS */
     async function duplicateSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
@@ -1201,7 +1227,7 @@
         title: `Duplicate ${selectedRows.length} Room(s)`,
         html:
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
-          `<input id="swal-input-building" list="dupBuildingOpts" class="swal2-input" placeholder="e.g., Penunjang / Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
+          `<input id="swal-input-building" list="dupBuildingOpts" class="swal2-input" placeholder="e.g., Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
           `<datalist id="dupBuildingOpts">${buildingOptionsHtml}</datalist>` +
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
           `<input id="swal-input-floor" list="dupFloorOpts" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">` +
@@ -1212,8 +1238,8 @@
         confirmButtonColor: '#8b5cf6',
         cancelButtonColor: '#6b7280',
         preConfirm: () => {
-          const targetBuilding = document.getElementById('swal-input-building').value.trim();
-          const targetFloor = document.getElementById('swal-input-floor').value.trim();
+          const targetBuilding = toTitleCase(document.getElementById('swal-input-building').value.trim());
+          const targetFloor = toTitleCase(document.getElementById('swal-input-floor').value.trim());
 
           if (!targetBuilding) {
             Swal.showValidationMessage('Target building name cannot be empty!');
@@ -1255,7 +1281,7 @@
           });
 
           setCachedRoomData(activeProject, currentCache.concat(duplicatedItems));
-          showAlert('Tersimpan Lokal', `${duplicatedItems.length} ruangan berhasil diduplikasi secara offline.`, 'warning');
+          showAlert('Saved Locally', `${duplicatedItems.length} room(s) duplicated offline.`, 'warning');
           fetchRoomData();
           return;
         }
@@ -1283,7 +1309,7 @@
           }
         } catch (err) {
           saveToOfflineQueue(payload);
-          showAlert('Tersimpan Lokal', 'Koneksi terputus. Aksi duplikasi dimasukkan ke antrean offline.', 'warning');
+          showAlert('Saved Locally', 'Connection lost. Duplicate action queued offline.', 'warning');
           fetchRoomData();
         }
       }
@@ -1328,7 +1354,7 @@
           currentCache = currentCache.filter(item => !selectedRows.includes(String(item.rowIndex)));
           setCachedRoomData(activeProject, currentCache);
 
-          showAlert('Tersimpan Lokal', `${selectedRows.length} ruangan dihapus secara lokal dan antrean sinkronisasi dibuat.`, 'warning');
+          showAlert('Saved Locally', `${selectedRows.length} room(s) deleted locally and queued for sync.`, 'warning');
           fetchRoomData();
           return;
         }
@@ -1356,7 +1382,7 @@
           }
         } catch (err) {
           saveToOfflineQueue(payload);
-          showAlert('Tersimpan Lokal', 'Koneksi terputus. Aksi penghapusan dimasukkan ke antrean offline.', 'warning');
+          showAlert('Saved Locally', 'Connection lost. Delete action queued offline.', 'warning');
           fetchRoomData();
         }
       }
@@ -1375,7 +1401,7 @@
 
     async function downloadSheet() {
       if (!navigator.onLine) {
-        showAlert('Fitur Online', 'Mengunduh file Excel XLSX memerlukan koneksi internet aktif.', 'warning');
+        showAlert('Online Feature', 'Downloading XLSX sheets requires an active internet connection.', 'warning');
         return;
       }
 
