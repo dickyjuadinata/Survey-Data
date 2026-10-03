@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Room Data System & Admin Panel</title>
+  <title>Facility & Room Data System</title>
 
   <!-- SweetAlert2 CSS & JS -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -345,13 +345,12 @@
 
     <!-- LOGIN FORM -->
     <div id="loginSection">
-      <h2 style="text-align: center; margin-top: 0; color: #111827;">System Login</h2>
-      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 24px;">Enter your username/surveyor name and PIN to access the system.</p>
+      <h2 style="text-align: center; margin-top: 0; margin-bottom: 24px; color: #111827;">Facility & Room Data System</h2>
       
       <form onsubmit="event.preventDefault(); handleLogin();">
         <div class="form-group">
-          <label for="loginUser">User / Surveyor Name</label>
-          <input type="text" id="loginUser" placeholder="e.g., Dicky / Admin" required>
+          <label for="loginUser">Username</label>
+          <input type="text" id="loginUser" placeholder="e.g., username" required>
         </div>
 
         <div class="form-group">
@@ -371,8 +370,8 @@
       
       <form onsubmit="event.preventDefault(); handleResetPin();">
         <div class="form-group">
-          <label for="resetUser">User / Surveyor Name</label>
-          <input type="text" id="resetUser" placeholder="Your username" required>
+          <label for="resetUser">Username</label>
+          <input type="text" id="resetUser" placeholder="e.g., username" required>
         </div>
 
         <div class="form-group">
@@ -657,7 +656,6 @@
       let remainingQueue = [];
       let successCount = 0;
 
-      // Iterasi per item tanpa menghapus seluruh antrean di awal untuk menghindari kebocoran data jika ada eror
       for (let i = 0; i < queue.length; i++) {
         const item = queue[i];
         try {
@@ -1050,7 +1048,6 @@
       if (!navigator.onLine) {
         saveToOfflineQueue(payload);
         
-        // Optimistic UI Update untuk Cache Lokal
         const localData = getCachedRoomData(activeProject);
         
         if (activeEditingRow) {
@@ -1072,7 +1069,6 @@
         document.getElementById("notes").value = "";
         activeEditingRow = null;
         
-        // Render tabel langsung dalam mode offline agar data male toilet dll langsung muncul
         fetchRoomData();
         return;
       }
@@ -1107,7 +1103,6 @@
       } catch (err) {
         saveToOfflineQueue(payload);
         
-        // Simpan ke Cache Lokal saat koneksi gagal terputus tiba-tiba
         const localData = getCachedRoomData(activeProject);
         localData.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
         setCachedRoomData(activeProject, localData);
@@ -1175,7 +1170,6 @@
         const floor    = item.floor || "Unspecified Floor";
         const groupKey = `${building} - ${floor}`;
 
-        // Render Group Header Row when new Building & Floor combination appears
         if (groupKey !== currentGroupKey) {
           currentGroupKey = groupKey;
           const groupTr = document.createElement("tr");
