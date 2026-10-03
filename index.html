@@ -581,6 +581,7 @@
         if (queue.length > 0) {
           syncOfflineQueue();
         } else {
+          banner.className = "net-status";
           banner.style.display = "none";
         }
       }
@@ -628,7 +629,7 @@
     }
 
     function mergeServerDataWithPending(serverData, projectName) {
-      let base = Array.isArray(serverData) ? [...serverData] : [];
+      const base = Array.isArray(serverData) ? [...serverData] : [];
       const pending = getPendingQueueForProject(projectName);
 
       pending.forEach(item => {
@@ -641,30 +642,6 @@
              String(row.area || "") === String(item.area || ""))
           );
           if (!alreadyVisible) base.push(buildOfflineDraftFromQueue(item));
-        } else if (item.action === "editRow") {
-          const idx = base.findIndex(row => String(row.rowIndex) === String(item.rowIndex));
-          if (idx !== -1) {
-            base[idx] = { ...base[idx], ...item, isOfflineDraft: true };
-          }
-        } else if (item.action === "deleteSelected") {
-          if (Array.isArray(item.selectedRows)) {
-            base = base.filter(row => !item.selectedRows.includes(String(row.rowIndex)));
-          }
-        } else if (item.action === "duplicateSelected") {
-          if (Array.isArray(item.selectedRows)) {
-            item.selectedRows.forEach(sRowId => {
-              const original = base.find(r => String(r.rowIndex) === String(sRowId));
-              if (original) {
-                base.push({
-                  ...original,
-                  building: item.targetBuilding,
-                  floor: item.targetFloor,
-                  rowIndex: item.clientKey + "_" + original.rowIndex,
-                  isOfflineDraft: true
-                });
-              }
-            });
-          }
         }
       });
 
@@ -1116,11 +1093,11 @@
         clientKey: uniqueClientKey
       };
 
-      // Helper function untuk update tampilan lokal jika offline / gagal koneksi
-      const updateLocalCacheAndUI = () => {
+      if (!navigator.onLine) {
         saveToOfflineQueue(payload);
+        
         const localData = getCachedRoomData(activeProject);
-
+        
         if (activeEditingRow) {
           const idx = localData.findIndex(item => String(item.rowIndex) === String(activeEditingRow));
           if (idx !== -1) {
@@ -1129,20 +1106,18 @@
         } else {
           localData.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
         }
-
+        
         setCachedRoomData(activeProject, localData);
+
+        showAlert('Saved Locally (Offline)', 'Room data saved to local storage and queued for online sync.', 'warning');
+        
         document.getElementById("roomID").value = "";
         document.getElementById("area").value = "";
         document.getElementById("surface").value = "";
         document.getElementById("notes").value = "";
         activeEditingRow = null;
-
+        
         fetchRoomData();
-      };
-
-      if (!navigator.onLine) {
-        updateLocalCacheAndUI();
-        showAlert('Saved Locally (Offline)', 'Room data saved to local storage and queued for online sync.', 'warning');
         return;
       }
 
@@ -1174,8 +1149,15 @@
           showAlert('Save Failed', result.message, 'error');
         }
       } catch (err) {
-        updateLocalCacheAndUI();
+        saveToOfflineQueue(payload);
+        
+        const localData = getCachedRoomData(activeProject);
+        const withoutSameDraft = localData.filter(item => String(item.clientKey || item.rowIndex || "") !== String(uniqueClientKey));
+        withoutSameDraft.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
+        setCachedRoomData(activeProject, withoutSameDraft);
+
         showAlert('Saved Locally', 'Connection lost. Action queued for offline sync.', 'warning');
+        fetchRoomData();
       } finally {
         btnSave.disabled = false;
         btnSave.innerText = "Save Room Data";
@@ -1189,7 +1171,6 @@
 
     /* RENDER ROOM DATA WITH GROUPING BY BUILDING & FLOOR */
     async function fetchRoomData() {
-      const tableBody = document.getElementById("roomTableBody");
       const selectAllCb = document.getElementById("selectAllCheckbox");
       if (selectAllCb) selectAllCb.checked = false;
 
@@ -1197,11 +1178,11 @@
 
       if (!navigator.onLine) {
         const cachedData = getCachedRoomData(activeProject);
-        const mergedData = mergeServerDataWithPending(cachedData, activeProject);
-        renderRoomTable(mergedData, true);
+        renderRoomTable(cachedData, true);
         return;
       }
 
+      const tableBody = document.getElementById("roomTableBody");
       tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
 
       try {
@@ -1229,8 +1210,7 @@
 
     function renderRoomTable(dataList, isOfflineMode = false) {
       const tableBody = document.getElementById("roomTableBody");
-      tableBody.innerHTML = "";
-
+      
       if (!dataList || dataList.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
         return;
@@ -1238,6 +1218,7 @@
 
       updateSuggestions(dataList);
 
+      const fragment = document.createDocumentFragment();
       let currentGroupKey = "";
 
       dataList.forEach(item => {
@@ -1250,7 +1231,7 @@
           const groupTr = document.createElement("tr");
           groupTr.className = "group-header-row";
           groupTr.innerHTML = `<td colspan="8">Building: ${escapeHtml(building)} &nbsp;|&nbsp; Floor: ${escapeHtml(floor)}</td>`;
-          tableBody.appendChild(groupTr);
+          fragment.appendChild(groupTr);
         }
 
         const tr = document.createElement("tr");
@@ -1277,8 +1258,11 @@
             <button class="btn-edit" type="button" onclick="editRow('${rowId}', '${escBuilding}', '${escFloor}', '${escRoomID}', '${escArea}', '${escSurface}', '${escNotes}')">Edit</button>
           </td>
         `;
-        tableBody.appendChild(tr);
+        fragment.appendChild(tr);
       });
+
+      tableBody.innerHTML = "";
+      tableBody.appendChild(fragment);
     }
 
     /* DUPLICATE MULTIPLE ROOMS */
@@ -1342,8 +1326,9 @@
           clientKey: createClientKey("DUP")
         };
 
-        const performOfflineDuplicate = () => {
+        if (!navigator.onLine) {
           saveToOfflineQueue(payload);
+
           const duplicatedItems = [];
           currentCache.forEach(item => {
             if (selectedRows.includes(String(item.rowIndex))) {
@@ -1358,12 +1343,8 @@
           });
 
           setCachedRoomData(activeProject, currentCache.concat(duplicatedItems));
+          showAlert('Saved Locally', `${duplicatedItems.length} room(s) duplicated offline.`, 'warning');
           fetchRoomData();
-        };
-
-        if (!navigator.onLine) {
-          performOfflineDuplicate();
-          showAlert('Saved Locally', `${selectedRows.length} room(s) duplicated offline.`, 'warning');
           return;
         }
 
@@ -1389,8 +1370,9 @@
             showAlert('Duplicate Failed', result.message, 'error');
           }
         } catch (err) {
-          performOfflineDuplicate();
+          saveToOfflineQueue(payload);
           showAlert('Saved Locally', 'Connection lost. Duplicate action queued offline.', 'warning');
+          fetchRoomData();
         }
       }
     }
@@ -1428,17 +1410,15 @@
           clientKey: createClientKey("DEL")
         };
 
-        const performOfflineDelete = () => {
+        if (!navigator.onLine) {
           saveToOfflineQueue(payload);
+
           let currentCache = getCachedRoomData(activeProject);
           currentCache = currentCache.filter(item => !selectedRows.includes(String(item.rowIndex)));
           setCachedRoomData(activeProject, currentCache);
-          fetchRoomData();
-        };
 
-        if (!navigator.onLine) {
-          performOfflineDelete();
           showAlert('Saved Locally', `${selectedRows.length} room(s) deleted locally and queued for sync.`, 'warning');
+          fetchRoomData();
           return;
         }
 
@@ -1464,8 +1444,9 @@
             showAlert('Delete Failed', result.message, 'error');
           }
         } catch (err) {
-          performOfflineDelete();
+          saveToOfflineQueue(payload);
           showAlert('Saved Locally', 'Connection lost. Delete action queued offline.', 'warning');
+          fetchRoomData();
         }
       }
     }
