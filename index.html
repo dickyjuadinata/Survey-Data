@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Room Data System & Admin Panel</title>
 
-  <!-- SweetAlert2 CSS & JS (CDN dengan Fallback Offline) -->
+  <!-- SweetAlert2 CSS & JS -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
@@ -306,7 +306,7 @@
       text-decoration: underline;
     }
     
-    /* Checkbox Alignment */
+    /* Checkbox Alignment & Tags */
     .center-col {
       text-align: center;
       width: 40px;
@@ -556,7 +556,7 @@
 
       if (!navigator.onLine) {
         banner.className = "net-status offline";
-        banner.innerText = `Mode Offline: Terdeteksi ${queue.length} data antrean yang tersimpan di HP/Browser.`;
+        banner.innerText = `Mode Offline: Terdeteksi ${queue.length} antrean aksi offline di perangkat Anda.`;
       } else {
         if (queue.length > 0) {
           syncOfflineQueue();
@@ -566,16 +566,29 @@
       }
     }
 
+    /* OFFLINE QUEUE MANAGEMENT */
     function getOfflineQueue() {
       return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]");
     }
 
     function saveToOfflineQueue(payload) {
       const queue = getOfflineQueue();
-      payload.tempId = "OFFLINE_" + Date.now();
+      payload.tempId = "OFFLINE_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
       queue.push(payload);
       localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
       updateNetworkStatus();
+    }
+
+    /* LOCAL DATA CACHING (MEMATIKAN PROBLEM TABEL KOSONG KETIKA OFFLINE) */
+    function getCachedRoomData(projectName) {
+      const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
+      return allCache[projectName] || [];
+    }
+
+    function setCachedRoomData(projectName, dataArray) {
+      const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
+      allCache[projectName] = dataArray;
+      localStorage.setItem("cached_room_data", JSON.stringify(allCache));
     }
 
     async function syncOfflineQueue() {
@@ -589,7 +602,7 @@
 
       const banner = document.getElementById("netStatusBanner");
       banner.className = "net-status syncing";
-      banner.innerText = `Sedang mengunggah ${queue.length} data antrean offline ke Google Sheets...`;
+      banner.innerText = `Sedang mengunggah ${queue.length} antrean aksi offline ke server...`;
 
       let successCount = 0;
       let remainingQueue = [];
@@ -615,7 +628,7 @@
       localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
 
       if (successCount > 0) {
-        showAlert('Sinkronisasi Sukses!', `${successCount} data offline berhasil diunggah ke Google Sheets.`, 'success');
+        showAlert('Sinkronisasi Sukses!', `${successCount} perubahan offline berhasil diunggah.`, 'success');
         fetchRoomData();
       }
 
@@ -661,7 +674,6 @@
         return;
       }
 
-      // Mode offline login bypass (menggunakan kredensial lokal terkahir)
       if (!navigator.onLine) {
         const lastUser = localStorage.getItem("last_logged_user");
         const lastPin  = localStorage.getItem("last_logged_pin");
@@ -676,7 +688,7 @@
           fetchRoomData();
           return;
         } else {
-          showAlert('Offline Login', 'Anda sedang offline. Gunakan nama pengguna dan PIN yang pernah dipakai login sebelumnya di perangkat ini.', 'error');
+          showAlert('Offline Login', 'Anda sedang offline. Gunakan nama pengguna dan PIN yang pernah dipakai login sebelumnya.', 'error');
           return;
         }
       }
@@ -701,7 +713,6 @@
           currentUser = userVal;
           currentPin  = pinVal;
 
-          // Simpan kredensial lokal untuk dukungan login saat offline
           localStorage.setItem("last_logged_user", currentUser);
           localStorage.setItem("last_logged_pin", currentPin);
 
@@ -915,7 +926,7 @@
       dropdown.innerHTML = `<option value="">Loading projects...</option>`;
 
       if (!navigator.onLine) {
-        dropdown.innerHTML = `<option value="">-- Single Project Mode (Offline) --</option>`;
+        dropdown.innerHTML = `<option value="${currentUser}">${currentUser} (Offline)</option>`;
         return;
       }
 
@@ -974,15 +985,21 @@
         notes: document.getElementById("notes").value
       };
 
-      // HANDLING MODE OFFLINE SINKRONISASI LOKAL
       if (!navigator.onLine) {
         saveToOfflineQueue(payload);
-        showAlert('Tersimpan Lokal (Offline)', 'Koneksi internet tidak tersedia. Data ruangan tersimpan di memori HP/Browser dan akan diunggah otomatis saat kembali online.', 'warning');
+        
+        // Optimistic UI Update untuk Cache Lokal
+        const localData = getCachedRoomData(activeProject);
+        localData.push({ ...payload, isOfflineDraft: true, rowIndex: "OFFLINE_" + Date.now() });
+        setCachedRoomData(activeProject, localData);
+
+        showAlert('Tersimpan Lokal (Offline)', 'Koneksi internet tidak tersedia. Data ruangan tersimpan secara lokal dan akan disinkronkan saat online.', 'warning');
         
         document.getElementById("roomID").value = "";
         document.getElementById("area").value = "";
         document.getElementById("surface").value = "";
         document.getElementById("notes").value = "";
+        activeEditingRow = null;
         fetchRoomData();
         return;
       }
@@ -1015,7 +1032,6 @@
           showAlert('Save Failed', result.message, 'error');
         }
       } catch (err) {
-        // Fallback jika jaringan putus saat request berjalan
         saveToOfflineQueue(payload);
         showAlert('Tersimpan Lokal', 'Koneksi terputus. Data dimasukkan ke antrean offline.', 'warning');
         fetchRoomData();
@@ -1025,12 +1041,12 @@
       }
     }
 
-    /* CHECKBOX SELECT ALL */
     function toggleSelectAll(masterCheckbox) {
       const checkboxes = document.querySelectorAll('.row-checkbox');
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     }
 
+    /* MENAMPILKAN DATA SECARA HYBRID (ONLINE & OFFLINE CACHE) */
     async function fetchRoomData() {
       const tableBody = document.getElementById("roomTableBody");
       const selectAllCb = document.getElementById("selectAllCheckbox");
@@ -1039,90 +1055,71 @@
       const activeProject = getSelectedProject();
       tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
 
-      // Jika Offline, baca data lokal yang tersimpan
+      // OFFLINE MODE: BACA DATA CACHE PERANGKAT LOKAL
       if (!navigator.onLine) {
-        const queue = getOfflineQueue();
-        tableBody.innerHTML = "";
-        
-        if (queue.length === 0) {
-          tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Tidak ada koneksi internet. Belum ada antrean data offline baru.</td></tr>`;
-          return;
-        }
-
-        queue.forEach(item => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td class="center-col">-</td>
-            <td>${escapeHtml(item.building)}</td>
-            <td>${escapeHtml(item.floor)}</td>
-            <td>${escapeHtml(item.roomID)} <span class="offline-tag">Offline Queue</span></td>
-            <td>${escapeHtml(item.area)}</td>
-            <td>${escapeHtml(item.surface)}</td>
-            <td>${escapeHtml(item.notes) || "-"}</td>
-            <td style="text-align: center;">-</td>
-          `;
-          tableBody.appendChild(tr);
-        });
+        const cachedData = getCachedRoomData(activeProject);
+        renderRoomTable(cachedData, true);
         return;
       }
 
+      // ONLINE MODE: AMBIL DARI GOOGLE SHEETS SERVER
       try {
         const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
         const result = await response.json();
 
-        if (result.status === "success" && result.data && result.data.length > 0) {
-          tableBody.innerHTML = "";
-          
-          // Tampilkan antrean offline jika ada di paling atas
-          const queue = getOfflineQueue();
-          queue.forEach(item => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td class="center-col">-</td>
-              <td>${escapeHtml(item.building)}</td>
-              <td>${escapeHtml(item.floor)}</td>
-              <td>${escapeHtml(item.roomID)} <span class="offline-tag">Pending Upload</span></td>
-              <td>${escapeHtml(item.area)}</td>
-              <td>${escapeHtml(item.surface)}</td>
-              <td>${escapeHtml(item.notes) || "-"}</td>
-              <td style="text-align: center;">-</td>
-            `;
-            tableBody.appendChild(tr);
-          });
-
-          result.data.forEach(item => {
-            const tr = document.createElement("tr");
-            
-            const escBuilding = escapeHtml(item.building);
-            const escFloor    = escapeHtml(item.floor);
-            const escRoomID   = escapeHtml(item.roomID);
-            const escArea     = escapeHtml(item.area);
-            const escSurface  = escapeHtml(item.surface);
-            const escNotes    = escapeHtml(item.notes);
-
-            tr.innerHTML = `
-              <td class="center-col"><input type="checkbox" class="row-checkbox" value="${item.rowIndex}"></td>
-              <td>${escBuilding}</td>
-              <td>${escFloor}</td>
-              <td>${escRoomID}</td>
-              <td>${escArea}</td>
-              <td>${escSurface}</td>
-              <td>${escNotes || "-"}</td>
-              <td style="text-align: center;">
-                <button class="btn-edit" type="button" onclick="editRow('${item.rowIndex}', '${escBuilding}', '${escFloor}', '${escRoomID}', '${escArea}', '${escSurface}', '${escNotes}')">Edit</button>
-              </td>
-            `;
-            tableBody.appendChild(tr);
-          });
+        if (result.status === "success" && result.data) {
+          // Perbaharui Cache Perangkat Lokal
+          setCachedRoomData(activeProject, result.data);
+          renderRoomTable(result.data, false);
         } else {
           tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No data found for project "${activeProject}"</td></tr>`;
         }
       } catch (err) {
-        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Failed to load data from server</td></tr>`;
+        // Fallback jika fetch gagal walau browser mengindikasikan online
+        const cachedData = getCachedRoomData(activeProject);
+        renderRoomTable(cachedData, true);
       }
     }
 
-    /* DUPLICATE MULTIPLE SELECTED ROOMS */
+    function renderRoomTable(dataList, isOfflineMode = false) {
+      const tableBody = document.getElementById("roomTableBody");
+      tableBody.innerHTML = "";
+
+      if (!dataList || dataList.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Tidak ada data ruangan untuk ditampilkan.</td></tr>`;
+        return;
+      }
+
+      dataList.forEach(item => {
+        const tr = document.createElement("tr");
+        
+        const escBuilding = escapeHtml(item.building);
+        const escFloor    = escapeHtml(item.floor);
+        const escRoomID   = escapeHtml(item.roomID);
+        const escArea     = escapeHtml(item.area);
+        const escSurface  = escapeHtml(item.surface);
+        const escNotes    = escapeHtml(item.notes);
+        const rowId       = item.rowIndex;
+
+        const offlineBadge = (item.isOfflineDraft || isOfflineMode) ? `<span class="offline-tag">Local Cache</span>` : '';
+
+        tr.innerHTML = `
+          <td class="center-col"><input type="checkbox" class="row-checkbox" value="${rowId}"></td>
+          <td>${escBuilding}</td>
+          <td>${escFloor}</td>
+          <td>${escRoomID} ${offlineBadge}</td>
+          <td>${escArea}</td>
+          <td>${escSurface}</td>
+          <td>${escNotes || "-"}</td>
+          <td style="text-align: center;">
+            <button class="btn-edit" type="button" onclick="editRow('${rowId}', '${escBuilding}', '${escFloor}', '${escRoomID}', '${escArea}', '${escSurface}', '${escNotes}')">Edit</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    /* DUPLICATE MULTIPLE ROOMS (HYBRID ONLINE & OFFLINE) */
     async function duplicateSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
@@ -1163,7 +1160,43 @@
 
       if (formValues) {
         const activeProject = getSelectedProject();
+        const payload = {
+          action: "duplicateSelected",
+          selectedRows: selectedRows,
+          targetBuilding: formValues.targetBuilding,
+          targetFloor: formValues.targetFloor,
+          surveyorName: currentUser,
+          userPin: currentPin,
+          newProjectName: activeProject
+        };
 
+        // KONDISI OFFLINE DUPUKASI
+        if (!navigator.onLine) {
+          saveToOfflineQueue(payload);
+
+          // Lakukan duplikasi pada data cache lokal
+          const currentCache = getCachedRoomData(activeProject);
+          const duplicatedItems = [];
+
+          currentCache.forEach(item => {
+            if (selectedRows.includes(String(item.rowIndex))) {
+              duplicatedItems.push({
+                ...item,
+                building: formValues.targetBuilding,
+                floor: formValues.targetFloor,
+                rowIndex: "OFFLINE_DUP_" + Date.now() + "_" + Math.floor(Math.random() * 100),
+                isOfflineDraft: true
+              });
+            }
+          });
+
+          setCachedRoomData(activeProject, currentCache.concat(duplicatedItems));
+          showAlert('Tersimpan Lokal', `${duplicatedItems.length} ruangan berhasil diduplikasi secara offline dan tersimpan di memori lokal.`, 'warning');
+          fetchRoomData();
+          return;
+        }
+
+        // KONDISI ONLINE DUPUKASI
         Swal.fire({
           title: 'Duplicating Rooms...',
           allowOutsideClick: false,
@@ -1174,15 +1207,7 @@
           const response = await fetch(SCRIPT_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
-              action: "duplicateSelected",
-              selectedRows: selectedRows,
-              targetBuilding: formValues.targetBuilding,
-              targetFloor: formValues.targetFloor,
-              surveyorName: currentUser,
-              userPin: currentPin,
-              newProjectName: activeProject
-            })
+            body: JSON.stringify(payload)
           });
 
           const result = await response.json();
@@ -1194,12 +1219,14 @@
             showAlert('Duplicate Failed', result.message, 'error');
           }
         } catch (err) {
-          showAlert('Error', 'Connection error occurred during room duplication.', 'error');
+          saveToOfflineQueue(payload);
+          showAlert('Tersimpan Lokal', 'Koneksi terputus. Aksi duplikasi dimasukkan ke antrean offline.', 'warning');
+          fetchRoomData();
         }
       }
     }
 
-    /* DELETE MULTIPLE SELECTED ROOMS */
+    /* DELETE MULTIPLE ROOMS (HYBRID ONLINE & OFFLINE) */
     async function deleteSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
@@ -1212,7 +1239,7 @@
 
       const confirmResult = await Swal.fire({
         title: 'Delete Selected Rooms?',
-        text: `Are you sure you want to delete ${selectedRows.length} selected room(s)? This action cannot be undone.`,
+        text: `Are you sure you want to delete ${selectedRows.length} selected room(s)?`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
@@ -1223,7 +1250,29 @@
 
       if (confirmResult.isConfirmed) {
         const activeProject = getSelectedProject();
+        const payload = {
+          action: "deleteSelected",
+          selectedRows: selectedRows,
+          surveyorName: currentUser,
+          userPin: currentPin,
+          newProjectName: activeProject
+        };
 
+        // KONDISI OFFLINE DELETE
+        if (!navigator.onLine) {
+          saveToOfflineQueue(payload);
+
+          // Hapus item terkait dari data cache lokal
+          let currentCache = getCachedRoomData(activeProject);
+          currentCache = currentCache.filter(item => !selectedRows.includes(String(item.rowIndex)));
+          setCachedRoomData(activeProject, currentCache);
+
+          showAlert('Tersimpan Lokal', `${selectedRows.length} ruangan dihapus dari tampilan lokal dan antrean sinkronisasi dibuat.`, 'warning');
+          fetchRoomData();
+          return;
+        }
+
+        // KONDISI ONLINE DELETE
         Swal.fire({
           title: 'Deleting Rooms...',
           allowOutsideClick: false,
@@ -1234,13 +1283,7 @@
           const response = await fetch(SCRIPT_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
-              action: "deleteSelected",
-              selectedRows: selectedRows,
-              surveyorName: currentUser,
-              userPin: currentPin,
-              newProjectName: activeProject
-            })
+            body: JSON.stringify(payload)
           });
 
           const result = await response.json();
@@ -1252,7 +1295,9 @@
             showAlert('Delete Failed', result.message, 'error');
           }
         } catch (err) {
-          showAlert('Error', 'Connection error occurred during deletion.', 'error');
+          saveToOfflineQueue(payload);
+          showAlert('Tersimpan Lokal', 'Koneksi terputus. Aksi penghapusan dimasukkan ke antrean offline.', 'warning');
+          fetchRoomData();
         }
       }
     }
@@ -1269,6 +1314,11 @@
     }
 
     async function downloadSheet() {
+      if (!navigator.onLine) {
+        showAlert('Fitur Online', 'Mengunduh file Excel XLSX memerlukan koneksi internet aktif.', 'warning');
+        return;
+      }
+
       const activeProject = getSelectedProject();
 
       Swal.fire({
