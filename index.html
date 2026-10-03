@@ -436,17 +436,20 @@
         <div id="inputTab" class="tab-content active">
           <div class="form-group">
             <label for="building">Building</label>
-            <input type="text" id="building" placeholder="e.g., Main" required>
+            <input type="text" id="building" list="buildingOptions" placeholder="e.g., Main / Annex" required autocomplete="off">
+            <datalist id="buildingOptions"></datalist>
           </div>
 
           <div class="form-group">
             <label for="floor">Floor</label>
-            <input type="text" id="floor" placeholder="e.g., Ground" required>
+            <input type="text" id="floor" list="floorOptions" placeholder="e.g., Ground / 2nd" required autocomplete="off">
+            <datalist id="floorOptions"></datalist>
           </div>
 
           <div class="form-group">
             <label for="roomID">Room ID / Room Name</label>
-            <input type="text" id="roomID" placeholder="e.g., Lobby" required>
+            <input type="text" id="roomID" list="roomIDOptions" placeholder="e.g., Lobby / Security" required autocomplete="off">
+            <datalist id="roomIDOptions"></datalist>
           </div>
 
           <div class="form-group">
@@ -579,7 +582,7 @@
       updateNetworkStatus();
     }
 
-    /* LOCAL DATA CACHING (MEMATIKAN PROBLEM TABEL KOSONG KETIKA OFFLINE) */
+    /* LOCAL DATA CACHING */
     function getCachedRoomData(projectName) {
       const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
       return allCache[projectName] || [];
@@ -589,6 +592,36 @@
       const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
       allCache[projectName] = dataArray;
       localStorage.setItem("cached_room_data", JSON.stringify(allCache));
+    }
+
+    /* UPDATE AUTO-SUGGESTIONS (DATALIST) DARI DATA TERPANTAU */
+    function updateDatalists(dataList) {
+      if (!dataList || !Array.isArray(dataList)) return;
+
+      const buildings = new Set();
+      const floors = new Set();
+      const roomIDs = new Set();
+
+      dataList.forEach(item => {
+        if (item.building) buildings.add(item.building);
+        if (item.floor) floors.add(item.floor);
+        if (item.roomID) roomIDs.add(item.roomID);
+      });
+
+      populateDatalist("buildingOptions", buildings);
+      populateDatalist("floorOptions", floors);
+      populateDatalist("roomIDOptions", roomIDs);
+    }
+
+    function populateDatalist(elementId, valueSet) {
+      const datalist = document.getElementById(elementId);
+      if (!datalist) return;
+      datalist.innerHTML = "";
+      valueSet.forEach(val => {
+        const option = document.createElement("option");
+        option.value = val;
+        datalist.appendChild(option);
+      });
     }
 
     async function syncOfflineQueue() {
@@ -1090,6 +1123,24 @@
         return;
       }
 
+      // Update Auto-Suggestions dari data yang berhasil dibaca
+      updateDatalists(dataList);
+
+      // PENGELOMPOKAN OTOMATIS: Sort berdasarkan Building -> Floor -> Room ID
+      dataList.sort((a, b) => {
+        const bA = (a.building || "").toString().toLowerCase();
+        const bB = (b.building || "").toString().toLowerCase();
+        if (bA !== bB) return bA.localeCompare(bB);
+
+        const fA = (a.floor || "").toString().toLowerCase();
+        const fB = (b.floor || "").toString().toLowerCase();
+        if (fA !== fB) return fA.localeCompare(fB);
+
+        const rA = (a.roomID || "").toString().toLowerCase();
+        const rB = (b.roomID || "").toString().toLowerCase();
+        return rA.localeCompare(rB);
+      });
+
       dataList.forEach(item => {
         const tr = document.createElement("tr");
         
@@ -1134,9 +1185,9 @@
         title: `Duplicate ${selectedRows.length} Room(s)`,
         html:
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
-          '<input id="swal-input-building" class="swal2-input" placeholder="e.g., Penunjang / Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">' +
+          '<input id="swal-input-building" class="swal2-input" list="buildingOptions" placeholder="e.g., Penunjang / Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">' +
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
-          '<input id="swal-input-floor" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">',
+          '<input id="swal-input-floor" class="swal2-input" list="floorOptions" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">',
         focusConfirm: false,
         showCancelButton: true,
         confirmButtonText: 'Duplicate Rooms',
@@ -1170,7 +1221,7 @@
           newProjectName: activeProject
         };
 
-        // KONDISI OFFLINE DUPUKASI
+        // KONDISI OFFLINE DUPLIKASI
         if (!navigator.onLine) {
           saveToOfflineQueue(payload);
 
@@ -1196,7 +1247,7 @@
           return;
         }
 
-        // KONDISI ONLINE DUPUKASI
+        // KONDISI ONLINE DUPLIKASI
         Swal.fire({
           title: 'Duplicating Rooms...',
           allowOutsideClick: false,
