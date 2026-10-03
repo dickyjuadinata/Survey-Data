@@ -557,6 +557,7 @@
     let currentPin  = "";
     let activeEditingRow = null;
     let isSyncing = false;
+    let lastNetworkState = null;
 
     // Capitalize First Letter of Each Word (Title Case)
     function toTitleCase(str) {
@@ -566,21 +567,43 @@
       });
     }
 
-    // Network Status Event Listeners
+    // High-Precision Unique Key Generator (Mengatasi Overwrite saat Offline Input Cepat)
+    function createClientKey(prefix = "CLIENT") {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return `${prefix}_${crypto.randomUUID()}`;
+      }
+      const randomArr = new Uint32Array(2);
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        crypto.getRandomValues(randomArr);
+      } else {
+        randomArr[0] = Math.floor(Math.random() * 4294967295);
+        randomArr[1] = Math.floor(Math.random() * 4294967295);
+      }
+      return `${prefix}_${Date.now()}_${randomArr[0].toString(36)}${randomArr[1].toString(36)}`;
+    }
+
+    // Connection Status Listener
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 
     function updateNetworkStatus() {
       const banner = document.getElementById("netStatusBanner");
       const queue = getOfflineQueue();
+      const isOnline = navigator.onLine;
 
-      if (!navigator.onLine) {
+      // Cegah pemicuan DOM/re-render jika status jaringan tidak mengalami perubahan
+      const currentStateKey = `${isOnline}_${queue.length}_${isSyncing}`;
+      if (lastNetworkState === currentStateKey) return;
+      lastNetworkState = currentStateKey;
+
+      if (!isOnline) {
         banner.className = "net-status offline";
+        banner.style.display = "block";
         banner.innerText = `Offline Mode: ${queue.length} pending action(s) queued on device.`;
       } else {
-        if (queue.length > 0) {
+        if (queue.length > 0 && !isSyncing) {
           syncOfflineQueue();
-        } else {
+        } else if (!isSyncing) {
           banner.className = "net-status";
           banner.style.display = "none";
         }
@@ -589,11 +612,11 @@
 
     /* OFFLINE QUEUE MANAGEMENT */
     function getOfflineQueue() {
-      return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]");
-    }
-
-    function createClientKey(prefix = "CLIENT") {
-      return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      try {
+        return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]");
+      } catch (e) {
+        return [];
+      }
     }
 
     function saveToOfflineQueue(payload) {
@@ -635,11 +658,7 @@
       pending.forEach(item => {
         if (item.action === "create") {
           const alreadyVisible = base.some(row =>
-            String(row.clientKey || "") === String(item.clientKey) ||
-            (String(row.building || "") === String(item.building || "") &&
-             String(row.floor || "") === String(item.floor || "") &&
-             String(row.roomID || "") === String(item.roomID || "") &&
-             String(row.area || "") === String(item.area || ""))
+            String(row.clientKey || "") === String(item.clientKey)
           );
           if (!alreadyVisible) base.push(buildOfflineDraftFromQueue(item));
         }
@@ -650,15 +669,23 @@
 
     /* LOCAL DATA CACHING */
     function getCachedRoomData(projectName) {
-      const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
-      return allCache[projectName] || [];
+      try {
+        const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
+        return allCache[projectName] || [];
+      } catch (e) {
+        return [];
+      }
     }
 
     function setCachedRoomData(projectName, dataArray) {
-      const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
-      allCache[projectName] = dataArray;
-      localStorage.setItem("cached_room_data", JSON.stringify(allCache));
-      updateSuggestions(dataArray);
+      try {
+        const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
+        allCache[projectName] = dataArray;
+        localStorage.setItem("cached_room_data", JSON.stringify(allCache));
+        updateSuggestions(dataArray);
+      } catch (e) {
+        console.error("Failed to save local cache", e);
+      }
     }
 
     /* SUGGESTIONS & AUTOCOMPLETE */
@@ -697,6 +724,7 @@
       isSyncing = true;
       const banner = document.getElementById("netStatusBanner");
       banner.className = "net-status syncing";
+      banner.style.display = "block";
       banner.innerText = `Uploading ${queue.length} offline action(s) to server...`;
 
       let remainingQueue = [...queue];
@@ -718,6 +746,8 @@
             successCount++;
             localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
           }
+          // Delay kecil untuk mencegah batas eksekusi beruntun pada Google Apps Script
+          await new Promise(res => setTimeout(res, 200));
         } catch (err) {
           break;
         }
@@ -731,6 +761,7 @@
       }
 
       await fetchRoomData();
+      lastNetworkState = null;
       updateNetworkStatus();
     }
 
@@ -1117,7 +1148,7 @@
         document.getElementById("notes").value = "";
         activeEditingRow = null;
         
-        fetchRoomData();
+        renderRoomTable(localData, true);
         return;
       }
 
@@ -1157,7 +1188,7 @@
         setCachedRoomData(activeProject, withoutSameDraft);
 
         showAlert('Saved Locally', 'Connection lost. Action queued for offline sync.', 'warning');
-        fetchRoomData();
+        renderRoomTable(withoutSameDraft, true);
       } finally {
         btnSave.disabled = false;
         btnSave.innerText = "Save Room Data";
@@ -1336,7 +1367,7 @@
                 ...item,
                 building: formValues.targetBuilding,
                 floor: formValues.targetFloor,
-                rowIndex: "OFFLINE_DUP_" + Date.now() + "_" + Math.floor(Math.random() * 100),
+                rowIndex: createClientKey("OFFLINE_DUP"),
                 isOfflineDraft: true
               });
             }
@@ -1344,7 +1375,7 @@
 
           setCachedRoomData(activeProject, currentCache.concat(duplicatedItems));
           showAlert('Saved Locally', `${duplicatedItems.length} room(s) duplicated offline.`, 'warning');
-          fetchRoomData();
+          renderRoomTable(currentCache.concat(duplicatedItems), true);
           return;
         }
 
@@ -1418,7 +1449,7 @@
           setCachedRoomData(activeProject, currentCache);
 
           showAlert('Saved Locally', `${selectedRows.length} room(s) deleted locally and queued for sync.`, 'warning');
-          fetchRoomData();
+          renderRoomTable(currentCache, true);
           return;
         }
 
