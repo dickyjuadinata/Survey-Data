@@ -245,19 +245,6 @@
     .btn-download:hover {
       background-color: #047857;
     }
-    .btn-sync {
-      background-color: #d97706;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: 500;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .btn-sync:hover {
-      background-color: #b45309;
-    }
     .btn-edit {
       background-color: #eab308;
       color: white;
@@ -518,7 +505,6 @@
           
           <div class="action-toolbar">
             <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
-            <button type="button" class="btn-sync" id="btnManualSync" onclick="syncOfflineQueue()">Sync Offline Data</button>
             <button type="button" class="btn-duplicate-main" onclick="duplicateSelectedRooms()">Duplicate Selected</button>
             <button type="button" class="btn-delete-selected" onclick="deleteSelectedRooms()">Delete Selected</button>
             <button type="button" class="btn-download" onclick="downloadSheet()">Download Sheet (XLSX)</button>
@@ -593,10 +579,7 @@
     }
 
     async function syncOfflineQueue() {
-      if (!navigator.onLine) {
-        showAlert('Info Offline', 'Anda masih dalam keadaan offline. Hubungkan ke internet untuk melakukan sinkronisasi.', 'warning');
-        return;
-      }
+      if (!navigator.onLine) return;
 
       const queue = getOfflineQueue();
       if (queue.length === 0) {
