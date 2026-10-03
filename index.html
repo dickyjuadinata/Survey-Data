@@ -500,7 +500,7 @@
         <div id="listTab" class="tab-content">
           <div class="form-group">
             <label for="projectName">Project Name (Select Existing)</label>
-            <select id="projectName" onchange="fetchRoomData()">
+            <select id="projectName" onchange="handleProjectChange()">
               <option value="">-- Select Project --</option>
             </select>
           </div>
@@ -557,6 +557,8 @@
     let currentPin  = "";
     let activeEditingRow = null;
     let isSyncing = false;
+    let isFetchingRooms = false; // Guard flag untuk mencegah flicker / re-render loop
+    let lastSelectedProject = "";
 
     // Capitalize First Letter of Each Word (Title Case)
     function toTitleCase(str) {
@@ -605,8 +607,6 @@
       payload.tempId = payload.clientKey;
       payload.queuedAt = payload.queuedAt || new Date().toISOString();
 
-      // IMPORTANT: the same operation must never be queued twice.
-      // This is the client-side half of the server-side idempotency protection.
       const existingIndex = queue.findIndex(item => String(item.clientKey) === String(payload.clientKey));
       if (existingIndex === -1) {
         queue.push(payload);
@@ -633,8 +633,6 @@
       const base = Array.isArray(serverData) ? [...serverData] : [];
       const pending = getPendingQueueForProject(projectName);
 
-      // Do not remove pending local records merely because the server response
-      // arrived before the queued request was acknowledged by the browser.
       pending.forEach(item => {
         if (item.action === "create") {
           const alreadyVisible = base.some(row =>
@@ -705,8 +703,6 @@
       let remainingQueue = [...queue];
       let successCount = 0;
 
-      // Process strictly in queue order. This avoids two offline writes racing
-      // for the same destination row and makes troubleshooting deterministic.
       for (const item of queue) {
         try {
           const response = await fetch(SCRIPT_URL, {
@@ -722,13 +718,9 @@
             remainingQueue = remainingQueue.filter(q => String(q.clientKey) !== String(item.clientKey));
             successCount++;
 
-            // Remove only the exact operation acknowledged by the server.
-            // Other pending records (e.g. Female Toilet) remain untouched.
             localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
           }
         } catch (err) {
-          // Keep this item and all following items. A failed request must not
-          // be discarded because the server may still need to receive it.
           break;
         }
       }
@@ -740,8 +732,6 @@
         showAlert('Sync Successful!', `${successCount} offline change(s) uploaded successfully.`, 'success');
       }
 
-      // Refresh after the queue has been updated. Pending records are merged
-      // into the server result so they cannot disappear from the UI.
       await fetchRoomData();
       updateNetworkStatus();
     }
@@ -796,6 +786,7 @@
           document.getElementById("displayUser").innerText = "User: " + currentUser + " (Offline Mode)";
           document.getElementById("appSection").style.display = "block";
           updateNetworkStatus();
+          await loadProjectDropdown();
           fetchRoomData();
           return;
         } else {
@@ -898,6 +889,7 @@
     function handleLogout() {
       currentUser = "";
       currentPin  = "";
+      lastSelectedProject = "";
       document.getElementById("loginUser").value = "";
       document.getElementById("loginPin").value = "";
       document.getElementById("adminSection").style.display = "none";
@@ -1038,6 +1030,7 @@
 
       if (!navigator.onLine) {
         dropdown.innerHTML = `<option value="${currentUser}">${currentUser} (Offline)</option>`;
+        lastSelectedProject = currentUser;
         return;
       }
 
@@ -1060,6 +1053,7 @@
 
           if (selectedProjectToKeep) {
             dropdown.value = selectedProjectToKeep;
+            lastSelectedProject = selectedProjectToKeep;
           }
         } else {
           dropdown.innerHTML = `<option value="">Failed to load projects</option>`;
@@ -1076,6 +1070,14 @@
       if (customProj !== "") return customProj;
       if (selectProj !== "") return selectProj;
       return currentUser;
+    }
+
+    function handleProjectChange() {
+      const currentProj = getSelectedProject();
+      if (currentProj !== lastSelectedProject) {
+        lastSelectedProject = currentProj;
+        fetchRoomData();
+      }
     }
 
     async function submitData() {
@@ -1183,40 +1185,47 @@
 
     /* RENDER ROOM DATA WITH GROUPING BY BUILDING & FLOOR */
     async function fetchRoomData() {
-      const tableBody = document.getElementById("roomTableBody");
-      const selectAllCb = document.getElementById("selectAllCheckbox");
-      if (selectAllCb) selectAllCb.checked = false;
-
-      const activeProject = getSelectedProject();
-
-      if (!navigator.onLine) {
-        const cachedData = getCachedRoomData(activeProject);
-        renderRoomTable(cachedData, true);
-        return;
-      }
-
-      tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
+      if (isFetchingRooms) return; // Mencegah re-entry/flickering
+      isFetchingRooms = true;
 
       try {
-        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const tableBody = document.getElementById("roomTableBody");
+        const selectAllCb = document.getElementById("selectAllCheckbox");
+        if (selectAllCb) selectAllCb.checked = false;
 
-        const result = await response.json();
+        const activeProject = getSelectedProject();
 
-        if (result.status === "success" && result.data) {
-          const mergedData = mergeServerDataWithPending(result.data, activeProject);
-          setCachedRoomData(activeProject, mergedData);
-          renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
-        } else {
+        if (!navigator.onLine) {
+          const cachedData = getCachedRoomData(activeProject);
+          renderRoomTable(cachedData, true);
+          return;
+        }
+
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
+
+        try {
+          const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+          const result = await response.json();
+
+          if (result.status === "success" && result.data) {
+            const mergedData = mergeServerDataWithPending(result.data, activeProject);
+            setCachedRoomData(activeProject, mergedData);
+            renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
+          } else {
+            const cachedData = getCachedRoomData(activeProject);
+            const mergedData = mergeServerDataWithPending(cachedData, activeProject);
+            setCachedRoomData(activeProject, mergedData);
+            renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
+          }
+        } catch (err) {
           const cachedData = getCachedRoomData(activeProject);
           const mergedData = mergeServerDataWithPending(cachedData, activeProject);
-          setCachedRoomData(activeProject, mergedData);
-          renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
+          renderRoomTable(mergedData, true);
         }
-      } catch (err) {
-        const cachedData = getCachedRoomData(activeProject);
-        const mergedData = mergeServerDataWithPending(cachedData, activeProject);
-        renderRoomTable(mergedData, true);
+      } finally {
+        isFetchingRooms = false;
       }
     }
 
