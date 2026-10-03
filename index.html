@@ -500,7 +500,7 @@
         <div id="listTab" class="tab-content">
           <div class="form-group">
             <label for="projectName">Project Name (Select Existing)</label>
-            <select id="projectName" onchange="handleProjectChange()">
+            <select id="projectName" onchange="fetchRoomData()">
               <option value="">-- Select Project --</option>
             </select>
           </div>
@@ -557,10 +557,8 @@
     let currentPin  = "";
     let activeEditingRow = null;
     let isSyncing = false;
-    let isFetchingRooms = false;
-    let fetchTimeout = null;
-    let lastSelectedProject = "";
 
+    // Capitalize First Letter of Each Word (Title Case)
     function toTitleCase(str) {
       if (!str) return "";
       return str.replace(/\w\S*/g, function(txt) {
@@ -568,6 +566,7 @@
       });
     }
 
+    // Network Status Event Listeners
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 
@@ -587,6 +586,7 @@
       }
     }
 
+    /* OFFLINE QUEUE MANAGEMENT */
     function getOfflineQueue() {
       return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]");
     }
@@ -628,7 +628,7 @@
     }
 
     function mergeServerDataWithPending(serverData, projectName) {
-      const base = Array.isArray(serverData) ? [...serverData] : [];
+      let base = Array.isArray(serverData) ? [...serverData] : [];
       const pending = getPendingQueueForProject(projectName);
 
       pending.forEach(item => {
@@ -641,12 +641,37 @@
              String(row.area || "") === String(item.area || ""))
           );
           if (!alreadyVisible) base.push(buildOfflineDraftFromQueue(item));
+        } else if (item.action === "editRow") {
+          const idx = base.findIndex(row => String(row.rowIndex) === String(item.rowIndex));
+          if (idx !== -1) {
+            base[idx] = { ...base[idx], ...item, isOfflineDraft: true };
+          }
+        } else if (item.action === "deleteSelected") {
+          if (Array.isArray(item.selectedRows)) {
+            base = base.filter(row => !item.selectedRows.includes(String(row.rowIndex)));
+          }
+        } else if (item.action === "duplicateSelected") {
+          if (Array.isArray(item.selectedRows)) {
+            item.selectedRows.forEach(sRowId => {
+              const original = base.find(r => String(r.rowIndex) === String(sRowId));
+              if (original) {
+                base.push({
+                  ...original,
+                  building: item.targetBuilding,
+                  floor: item.targetFloor,
+                  rowIndex: item.clientKey + "_" + original.rowIndex,
+                  isOfflineDraft: true
+                });
+              }
+            });
+          }
         }
       });
 
       return base;
     }
 
+    /* LOCAL DATA CACHING */
     function getCachedRoomData(projectName) {
       const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
       return allCache[projectName] || [];
@@ -659,28 +684,22 @@
       updateSuggestions(dataArray);
     }
 
-    /* PENCEGAHAN FLICKER DATALIST: Hanya update DOM jika opsi memang berubah */
+    /* SUGGESTIONS & AUTOCOMPLETE */
     function updateSuggestions(dataArray) {
       if (!dataArray || !Array.isArray(dataArray)) return;
 
-      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))].sort();
-      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))].sort();
-      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))].sort();
+      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))];
+      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))];
+      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))];
 
-      populateDatalistIfChanged("buildingOptions", buildings);
-      populateDatalistIfChanged("floorOptions", floors);
-      populateDatalistIfChanged("roomIDOptions", roomIDs);
+      populateDatalist("buildingOptions", buildings);
+      populateDatalist("floorOptions", floors);
+      populateDatalist("roomIDOptions", roomIDs);
     }
 
-    function populateDatalistIfChanged(elementId, values) {
+    function populateDatalist(elementId, values) {
       const datalist = document.getElementById(elementId);
       if (!datalist) return;
-
-      const currentValues = Array.from(datalist.options).map(opt => opt.value);
-      if (JSON.stringify(currentValues) === JSON.stringify(values)) {
-        return; // Tidak ada perubahan, lewati re-render DOM
-      }
-
       datalist.innerHTML = "";
       values.forEach(val => {
         const opt = document.createElement("option");
@@ -720,7 +739,6 @@
           if (result && result.status === "success") {
             remainingQueue = remainingQueue.filter(q => String(q.clientKey) !== String(item.clientKey));
             successCount++;
-
             localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
           }
         } catch (err) {
@@ -735,7 +753,7 @@
         showAlert('Sync Successful!', `${successCount} offline change(s) uploaded successfully.`, 'success');
       }
 
-      fetchRoomData();
+      await fetchRoomData();
       updateNetworkStatus();
     }
 
@@ -789,7 +807,6 @@
           document.getElementById("displayUser").innerText = "User: " + currentUser + " (Offline Mode)";
           document.getElementById("appSection").style.display = "block";
           updateNetworkStatus();
-          await loadProjectDropdown();
           fetchRoomData();
           return;
         } else {
@@ -892,7 +909,6 @@
     function handleLogout() {
       currentUser = "";
       currentPin  = "";
-      lastSelectedProject = "";
       document.getElementById("loginUser").value = "";
       document.getElementById("loginPin").value = "";
       document.getElementById("adminSection").style.display = "none";
@@ -900,6 +916,7 @@
       document.getElementById("loginSection").style.display = "block";
     }
 
+    /* ADMIN PANEL FUNCTIONS */
     async function loadAdminUsers() {
       const tbody = document.getElementById("adminUserTableBody");
       tbody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading users...</td></tr>`;
@@ -1013,6 +1030,7 @@
       }
     }
 
+    /* SURVEYOR TAB & DASHBOARD FUNCTIONS */
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -1027,10 +1045,10 @@
 
     async function loadProjectDropdown(selectedProjectToKeep = "") {
       const dropdown = document.getElementById("projectName");
+      dropdown.innerHTML = `<option value="">Loading projects...</option>`;
 
       if (!navigator.onLine) {
         dropdown.innerHTML = `<option value="${currentUser}">${currentUser} (Offline)</option>`;
-        lastSelectedProject = currentUser;
         return;
       }
 
@@ -1053,7 +1071,6 @@
 
           if (selectedProjectToKeep) {
             dropdown.value = selectedProjectToKeep;
-            lastSelectedProject = selectedProjectToKeep;
           }
         } else {
           dropdown.innerHTML = `<option value="">Failed to load projects</option>`;
@@ -1070,14 +1087,6 @@
       if (customProj !== "") return customProj;
       if (selectProj !== "") return selectProj;
       return currentUser;
-    }
-
-    function handleProjectChange() {
-      const currentProj = getSelectedProject();
-      if (currentProj !== lastSelectedProject) {
-        lastSelectedProject = currentProj;
-        fetchRoomData();
-      }
     }
 
     async function submitData() {
@@ -1107,11 +1116,11 @@
         clientKey: uniqueClientKey
       };
 
-      if (!navigator.onLine) {
+      // Helper function untuk update tampilan lokal jika offline / gagal koneksi
+      const updateLocalCacheAndUI = () => {
         saveToOfflineQueue(payload);
-        
         const localData = getCachedRoomData(activeProject);
-        
+
         if (activeEditingRow) {
           const idx = localData.findIndex(item => String(item.rowIndex) === String(activeEditingRow));
           if (idx !== -1) {
@@ -1120,18 +1129,20 @@
         } else {
           localData.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
         }
-        
-        setCachedRoomData(activeProject, localData);
 
-        showAlert('Saved Locally (Offline)', 'Room data saved to local storage and queued for online sync.', 'warning');
-        
+        setCachedRoomData(activeProject, localData);
         document.getElementById("roomID").value = "";
         document.getElementById("area").value = "";
         document.getElementById("surface").value = "";
         document.getElementById("notes").value = "";
         activeEditingRow = null;
-        
+
         fetchRoomData();
+      };
+
+      if (!navigator.onLine) {
+        updateLocalCacheAndUI();
+        showAlert('Saved Locally (Offline)', 'Room data saved to local storage and queued for online sync.', 'warning');
         return;
       }
 
@@ -1163,15 +1174,8 @@
           showAlert('Save Failed', result.message, 'error');
         }
       } catch (err) {
-        saveToOfflineQueue(payload);
-        
-        const localData = getCachedRoomData(activeProject);
-        const withoutSameDraft = localData.filter(item => String(item.clientKey || item.rowIndex || "") !== String(uniqueClientKey));
-        withoutSameDraft.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
-        setCachedRoomData(activeProject, withoutSameDraft);
-
+        updateLocalCacheAndUI();
         showAlert('Saved Locally', 'Connection lost. Action queued for offline sync.', 'warning');
-        fetchRoomData();
       } finally {
         btnSave.disabled = false;
         btnSave.innerText = "Save Room Data";
@@ -1183,29 +1187,24 @@
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     }
 
-    /* FETCH DATA DENGAN DEBOUNCE UNTUK MENCEGAH PEMANGGILAN BERUNTUN */
-    function fetchRoomData() {
-      if (fetchTimeout) clearTimeout(fetchTimeout);
-      fetchTimeout = setTimeout(executeFetchRoomData, 100);
-    }
+    /* RENDER ROOM DATA WITH GROUPING BY BUILDING & FLOOR */
+    async function fetchRoomData() {
+      const tableBody = document.getElementById("roomTableBody");
+      const selectAllCb = document.getElementById("selectAllCheckbox");
+      if (selectAllCb) selectAllCb.checked = false;
 
-    async function executeFetchRoomData() {
-      if (isFetchingRooms) return;
-      isFetchingRooms = true;
+      const activeProject = getSelectedProject();
+
+      if (!navigator.onLine) {
+        const cachedData = getCachedRoomData(activeProject);
+        const mergedData = mergeServerDataWithPending(cachedData, activeProject);
+        renderRoomTable(mergedData, true);
+        return;
+      }
+
+      tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
 
       try {
-        const tableBody = document.getElementById("roomTableBody");
-        const selectAllCb = document.getElementById("selectAllCheckbox");
-        if (selectAllCb) selectAllCb.checked = false;
-
-        const activeProject = getSelectedProject();
-
-        if (!navigator.onLine) {
-          const cachedData = getCachedRoomData(activeProject);
-          renderRoomTable(cachedData, true);
-          return;
-        }
-
         const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -1222,12 +1221,9 @@
           renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
         }
       } catch (err) {
-        const activeProject = getSelectedProject();
         const cachedData = getCachedRoomData(activeProject);
         const mergedData = mergeServerDataWithPending(cachedData, activeProject);
         renderRoomTable(mergedData, true);
-      } finally {
-        isFetchingRooms = false;
       }
     }
 
@@ -1285,6 +1281,7 @@
       });
     }
 
+    /* DUPLICATE MULTIPLE ROOMS */
     async function duplicateSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
@@ -1345,9 +1342,8 @@
           clientKey: createClientKey("DUP")
         };
 
-        if (!navigator.onLine) {
+        const performOfflineDuplicate = () => {
           saveToOfflineQueue(payload);
-
           const duplicatedItems = [];
           currentCache.forEach(item => {
             if (selectedRows.includes(String(item.rowIndex))) {
@@ -1362,8 +1358,12 @@
           });
 
           setCachedRoomData(activeProject, currentCache.concat(duplicatedItems));
-          showAlert('Saved Locally', `${duplicatedItems.length} room(s) duplicated offline.`, 'warning');
           fetchRoomData();
+        };
+
+        if (!navigator.onLine) {
+          performOfflineDuplicate();
+          showAlert('Saved Locally', `${selectedRows.length} room(s) duplicated offline.`, 'warning');
           return;
         }
 
@@ -1389,13 +1389,13 @@
             showAlert('Duplicate Failed', result.message, 'error');
           }
         } catch (err) {
-          saveToOfflineQueue(payload);
+          performOfflineDuplicate();
           showAlert('Saved Locally', 'Connection lost. Duplicate action queued offline.', 'warning');
-          fetchRoomData();
         }
       }
     }
 
+    /* DELETE MULTIPLE ROOMS */
     async function deleteSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
@@ -1428,15 +1428,17 @@
           clientKey: createClientKey("DEL")
         };
 
-        if (!navigator.onLine) {
+        const performOfflineDelete = () => {
           saveToOfflineQueue(payload);
-
           let currentCache = getCachedRoomData(activeProject);
           currentCache = currentCache.filter(item => !selectedRows.includes(String(item.rowIndex)));
           setCachedRoomData(activeProject, currentCache);
-
-          showAlert('Saved Locally', `${selectedRows.length} room(s) deleted locally and queued for sync.`, 'warning');
           fetchRoomData();
+        };
+
+        if (!navigator.onLine) {
+          performOfflineDelete();
+          showAlert('Saved Locally', `${selectedRows.length} room(s) deleted locally and queued for sync.`, 'warning');
           return;
         }
 
@@ -1462,9 +1464,8 @@
             showAlert('Delete Failed', result.message, 'error');
           }
         } catch (err) {
-          saveToOfflineQueue(payload);
+          performOfflineDelete();
           showAlert('Saved Locally', 'Connection lost. Delete action queued offline.', 'warning');
-          fetchRoomData();
         }
       }
     }
