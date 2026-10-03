@@ -175,6 +175,10 @@
     .btn-primary:hover {
       background-color: #15803d;
     }
+    .btn-primary:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
     .btn-secondary {
       width: 100%;
       background-color: #6b7280;
@@ -591,8 +595,11 @@
       return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]");
     }
 
+    // High Precision Unique Client Key Generator to Prevent Backend Deduplication Dropping Valid Inputs
     function createClientKey(prefix = "CLIENT") {
-      return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const perfTimestamp = (typeof performance !== 'undefined' && performance.now) ? performance.now().toString(36).replace('.', '') : '';
+      const randomPart = Math.random().toString(36).substring(2, 10);
+      return `${prefix}_${Date.now()}_${perfTimestamp}_${randomPart}`;
     }
 
     function saveToOfflineQueue(payload) {
@@ -632,7 +639,7 @@
       const pending = getPendingQueueForProject(projectName);
 
       pending.forEach(item => {
-        if (item.action === "create") {
+        if (item.action === "create" || item.action === "saveData") {
           const alreadyVisible = base.some(row =>
             String(row.clientKey || "") === String(item.clientKey) ||
             (String(row.building || "") === String(item.building || "") &&
@@ -715,7 +722,6 @@
           if (result && result.status === "success") {
             remainingQueue = remainingQueue.filter(q => String(q.clientKey) !== String(item.clientKey));
             successCount++;
-
             localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
           }
         } catch (err) {
@@ -910,6 +916,7 @@
             return;
           }
 
+          const fragment = document.createDocumentFragment();
           result.users.forEach(u => {
             const tr = document.createElement("tr");
             const escUser = escapeHtml(u.username);
@@ -930,8 +937,9 @@
                 <button class="btn-delete" onclick="deleteUserAndFiles('${escUser}')">Delete User & Files</button>
               </td>
             `;
-            tbody.appendChild(tr);
+            fragment.appendChild(tr);
           });
+          tbody.appendChild(fragment);
         } else {
           showAlert('Error', result.message || 'Failed to fetch user list.', 'error');
         }
@@ -1079,7 +1087,7 @@
       const uniqueClientKey = createClientKey("CLIENT");
 
       const payload = {
-        action: activeEditingRow ? "editRow" : "create",
+        action: activeEditingRow ? "editRow" : "saveData",
         rowIndex: activeEditingRow,
         surveyorName: currentUser,
         userPin: currentPin,
@@ -1092,6 +1100,9 @@
         notes: notesInput,
         clientKey: uniqueClientKey
       };
+
+      btnSave.disabled = true;
+      btnSave.innerText = "Saving Data...";
 
       if (!navigator.onLine) {
         saveToOfflineQueue(payload);
@@ -1118,13 +1129,12 @@
         activeEditingRow = null;
         
         fetchRoomData();
+        btnSave.disabled = false;
+        btnSave.innerText = "Save Room Data";
         return;
       }
 
       try {
-        btnSave.disabled = true;
-        btnSave.innerText = "Saving Data...";
-
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -1220,6 +1230,7 @@
       updateSuggestions(dataList);
 
       let currentGroupKey = "";
+      const fragment = document.createDocumentFragment();
 
       dataList.forEach(item => {
         const building = item.building || "Unspecified Building";
@@ -1231,7 +1242,7 @@
           const groupTr = document.createElement("tr");
           groupTr.className = "group-header-row";
           groupTr.innerHTML = `<td colspan="8">Building: ${escapeHtml(building)} &nbsp;|&nbsp; Floor: ${escapeHtml(floor)}</td>`;
-          tableBody.appendChild(groupTr);
+          fragment.appendChild(groupTr);
         }
 
         const tr = document.createElement("tr");
@@ -1258,8 +1269,10 @@
             <button class="btn-edit" type="button" onclick="editRow('${rowId}', '${escBuilding}', '${escFloor}', '${escRoomID}', '${escArea}', '${escSurface}', '${escNotes}')">Edit</button>
           </td>
         `;
-        tableBody.appendChild(tr);
+        fragment.appendChild(tr);
       });
+
+      tableBody.appendChild(fragment);
     }
 
     /* DUPLICATE MULTIPLE ROOMS */
