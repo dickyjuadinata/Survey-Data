@@ -594,7 +594,10 @@
 
     function saveToOfflineQueue(payload) {
       const queue = getOfflineQueue();
-      payload.tempId = "OFFLINE_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+      if (!payload.clientKey) {
+        payload.clientKey = "CLIENT_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+      }
+      payload.tempId = payload.clientKey;
       queue.push(payload);
       localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
       updateNetworkStatus();
@@ -651,13 +654,12 @@
       banner.className = "net-status syncing";
       banner.innerText = `Uploading ${queue.length} offline action(s) to server...`;
 
-      // Clear queue beforehand to prevent duplicate triggers
-      localStorage.removeItem("offline_survey_queue");
-
-      let successCount = 0;
       let remainingQueue = [];
+      let successCount = 0;
 
-      for (let item of queue) {
+      // Iterasi per item tanpa menghapus seluruh antrean di awal untuk menghindari kebocoran data jika ada eror
+      for (let i = 0; i < queue.length; i++) {
+        const item = queue[i];
         try {
           const response = await fetch(SCRIPT_URL, {
             method: "POST",
@@ -675,10 +677,7 @@
         }
       }
 
-      if (remainingQueue.length > 0) {
-        localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
-      }
-
+      localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
       isSyncing = false;
 
       if (successCount > 0) {
@@ -1031,6 +1030,8 @@
       const surfaceInput  = toTitleCase(document.getElementById("surface").value.trim());
       const notesInput    = toTitleCase(document.getElementById("notes").value.trim());
 
+      const uniqueClientKey = "CLIENT_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+
       const payload = {
         action: activeEditingRow ? "editRow" : "create",
         rowIndex: activeEditingRow,
@@ -1042,13 +1043,14 @@
         roomID: roomIDInput,
         area: document.getElementById("area").value.trim(),
         surface: surfaceInput,
-        notes: notesInput
+        notes: notesInput,
+        clientKey: uniqueClientKey
       };
 
       if (!navigator.onLine) {
         saveToOfflineQueue(payload);
         
-        // Optimistic UI Update for Local Cache
+        // Optimistic UI Update untuk Cache Lokal
         const localData = getCachedRoomData(activeProject);
         
         if (activeEditingRow) {
@@ -1057,7 +1059,7 @@
             localData[idx] = { ...payload, isOfflineDraft: true };
           }
         } else {
-          localData.push({ ...payload, isOfflineDraft: true, rowIndex: "OFFLINE_" + Date.now() });
+          localData.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
         }
         
         setCachedRoomData(activeProject, localData);
@@ -1070,7 +1072,7 @@
         document.getElementById("notes").value = "";
         activeEditingRow = null;
         
-        // Render updated list immediately on offline submission
+        // Render tabel langsung dalam mode offline agar data male toilet dll langsung muncul
         fetchRoomData();
         return;
       }
@@ -1104,6 +1106,12 @@
         }
       } catch (err) {
         saveToOfflineQueue(payload);
+        
+        // Simpan ke Cache Lokal saat koneksi gagal terputus tiba-tiba
+        const localData = getCachedRoomData(activeProject);
+        localData.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
+        setCachedRoomData(activeProject, localData);
+
         showAlert('Saved Locally', 'Connection lost. Action queued for offline sync.', 'warning');
         fetchRoomData();
       } finally {
@@ -1261,7 +1269,8 @@
           targetFloor: formValues.targetFloor,
           surveyorName: currentUser,
           userPin: currentPin,
-          newProjectName: activeProject
+          newProjectName: activeProject,
+          clientKey: "DUP_" + Date.now() + "_" + Math.floor(Math.random() * 10000)
         };
 
         if (!navigator.onLine) {
@@ -1344,7 +1353,8 @@
           selectedRows: selectedRows,
           surveyorName: currentUser,
           userPin: currentPin,
-          newProjectName: activeProject
+          newProjectName: activeProject,
+          clientKey: "DEL_" + Date.now() + "_" + Math.floor(Math.random() * 10000)
         };
 
         if (!navigator.onLine) {
