@@ -558,7 +558,6 @@
     let activeEditingRow = null;
     let isSyncing = false;
 
-    // Capitalize First Letter of Each Word (Title Case)
     function toTitleCase(str) {
       if (!str) return "";
       return str.replace(/\w\S*/g, function(txt) {
@@ -566,7 +565,6 @@
       });
     }
 
-    // Network Status Event Listeners
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 
@@ -605,8 +603,6 @@
       payload.tempId = payload.clientKey;
       payload.queuedAt = payload.queuedAt || new Date().toISOString();
 
-      // IMPORTANT: the same operation must never be queued twice.
-      // This is the client-side half of the server-side idempotency protection.
       const existingIndex = queue.findIndex(item => String(item.clientKey) === String(payload.clientKey));
       if (existingIndex === -1) {
         queue.push(payload);
@@ -633,10 +629,8 @@
       const base = Array.isArray(serverData) ? [...serverData] : [];
       const pending = getPendingQueueForProject(projectName);
 
-      // Do not remove pending local records merely because the server response
-      // arrived before the queued request was acknowledged by the browser.
       pending.forEach(item => {
-        if (item.action === "create") {
+        if (item.action === "create" || item.action === "editRow") {
           const alreadyVisible = base.some(row =>
             String(row.clientKey || "") === String(item.clientKey) ||
             (String(row.building || "") === String(item.building || "") &&
@@ -645,6 +639,12 @@
              String(row.area || "") === String(item.area || ""))
           );
           if (!alreadyVisible) base.push(buildOfflineDraftFromQueue(item));
+        } else if (item.action === "deleteSelected" && Array.isArray(item.selectedRows)) {
+          for (let i = base.length - 1; i >= 0; i--) {
+            if (item.selectedRows.includes(String(base[i].rowIndex))) {
+              base.splice(i, 1);
+            }
+          }
         }
       });
 
@@ -705,8 +705,6 @@
       let remainingQueue = [...queue];
       let successCount = 0;
 
-      // Process strictly in queue order. This avoids two offline writes racing
-      // for the same destination row and makes troubleshooting deterministic.
       for (const item of queue) {
         try {
           const response = await fetch(SCRIPT_URL, {
@@ -721,14 +719,12 @@
           if (result && result.status === "success") {
             remainingQueue = remainingQueue.filter(q => String(q.clientKey) !== String(item.clientKey));
             successCount++;
-
-            // Remove only the exact operation acknowledged by the server.
-            // Other pending records (e.g. Female Toilet) remain untouched.
+            localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
+          } else if (result && result.status === "error") {
+            remainingQueue = remainingQueue.filter(q => String(q.clientKey) !== String(item.clientKey));
             localStorage.setItem("offline_survey_queue", JSON.stringify(remainingQueue));
           }
         } catch (err) {
-          // Keep this item and all following items. A failed request must not
-          // be discarded because the server may still need to receive it.
           break;
         }
       }
@@ -740,8 +736,6 @@
         showAlert('Sync Successful!', `${successCount} offline change(s) uploaded successfully.`, 'success');
       }
 
-      // Refresh after the queue has been updated. Pending records are merged
-      // into the server result so they cannot disappear from the UI.
       await fetchRoomData();
       updateNetworkStatus();
     }
