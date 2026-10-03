@@ -558,11 +558,6 @@
     let activeEditingRow = null;
     let isSyncing = false;
 
-    // Helper untuk generate Unik Key acak presisi tinggi
-    function generateUniqueKey(prefix = "CLIENT_") {
-      return prefix + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-    }
-
     // Capitalize First Letter of Each Word (Title Case)
     function toTitleCase(str) {
       if (!str) return "";
@@ -599,7 +594,7 @@
     function saveToOfflineQueue(payload) {
       const queue = getOfflineQueue();
       if (!payload.clientKey) {
-        payload.clientKey = generateUniqueKey("CLIENT_");
+        payload.clientKey = "CLIENT_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
       }
       payload.tempId = payload.clientKey;
       queue.push(payload);
@@ -1033,7 +1028,7 @@
       const surfaceInput  = toTitleCase(document.getElementById("surface").value.trim());
       const notesInput    = toTitleCase(document.getElementById("notes").value.trim());
 
-      const uniqueClientKey = generateUniqueKey("CLIENT_");
+      const uniqueClientKey = "CLIENT_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
 
       const payload = {
         action: activeEditingRow ? "editRow" : "create",
@@ -1056,11 +1051,9 @@
         const localData = getCachedRoomData(activeProject);
         
         if (activeEditingRow) {
-          const idx = localData.findIndex(item => String(item.rowIndex) === String(activeEditingRow));
+          const idx = localData.findIndex(item => String(item.rowIndex) === String(activeEditingRow) || String(item.clientKey) === String(activeEditingRow));
           if (idx !== -1) {
             localData[idx] = { ...payload, isOfflineDraft: true };
-          } else {
-            localData.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
           }
         } else {
           localData.push({ ...payload, isOfflineDraft: true, rowIndex: uniqueClientKey });
@@ -1271,7 +1264,7 @@
           surveyorName: currentUser,
           userPin: currentPin,
           newProjectName: activeProject,
-          clientKey: generateUniqueKey("DUP_")
+          clientKey: "DUP_" + Date.now() + "_" + Math.floor(Math.random() * 10000)
         };
 
         if (!navigator.onLine) {
@@ -1279,14 +1272,12 @@
 
           const duplicatedItems = [];
           currentCache.forEach(item => {
-            const keyToCheck = String(item.rowIndex || item.clientKey);
-            if (selectedRows.includes(keyToCheck)) {
+            if (selectedRows.includes(String(item.rowIndex)) || selectedRows.includes(String(item.clientKey))) {
               duplicatedItems.push({
                 ...item,
                 building: formValues.targetBuilding,
                 floor: formValues.targetFloor,
-                rowIndex: generateUniqueKey("OFFLINE_DUP_"),
-                clientKey: generateUniqueKey("CLIENT_"),
+                rowIndex: "OFFLINE_DUP_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
                 isOfflineDraft: true
               });
             }
@@ -1357,17 +1348,14 @@
           surveyorName: currentUser,
           userPin: currentPin,
           newProjectName: activeProject,
-          clientKey: generateUniqueKey("DEL_")
+          clientKey: "DEL_" + Date.now() + "_" + Math.floor(Math.random() * 10000)
         };
 
         if (!navigator.onLine) {
           saveToOfflineQueue(payload);
 
           let currentCache = getCachedRoomData(activeProject);
-          currentCache = currentCache.filter(item => {
-            const keyToCheck = String(item.rowIndex || item.clientKey);
-            return !selectedRows.includes(keyToCheck);
-          });
+          currentCache = currentCache.filter(item => !selectedRows.includes(String(item.rowIndex)) && !selectedRows.includes(String(item.clientKey)));
           setCachedRoomData(activeProject, currentCache);
 
           showAlert('Saved Locally', `${selectedRows.length} room(s) deleted locally and queued for sync.`, 'warning');
