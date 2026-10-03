@@ -557,10 +557,10 @@
     let currentPin  = "";
     let activeEditingRow = null;
     let isSyncing = false;
-    let isFetchingRooms = false; // Guard flag untuk mencegah flicker / re-render loop
+    let isFetchingRooms = false;
+    let fetchTimeout = null;
     let lastSelectedProject = "";
 
-    // Capitalize First Letter of Each Word (Title Case)
     function toTitleCase(str) {
       if (!str) return "";
       return str.replace(/\w\S*/g, function(txt) {
@@ -568,7 +568,6 @@
       });
     }
 
-    // Network Status Event Listeners
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 
@@ -588,7 +587,6 @@
       }
     }
 
-    /* OFFLINE QUEUE MANAGEMENT */
     function getOfflineQueue() {
       return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]");
     }
@@ -649,7 +647,6 @@
       return base;
     }
 
-    /* LOCAL DATA CACHING */
     function getCachedRoomData(projectName) {
       const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
       return allCache[projectName] || [];
@@ -662,22 +659,28 @@
       updateSuggestions(dataArray);
     }
 
-    /* SUGGESTIONS & AUTOCOMPLETE */
+    /* PENCEGAHAN FLICKER DATALIST: Hanya update DOM jika opsi memang berubah */
     function updateSuggestions(dataArray) {
       if (!dataArray || !Array.isArray(dataArray)) return;
 
-      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))];
-      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))];
-      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))];
+      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))].sort();
+      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))].sort();
+      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))].sort();
 
-      populateDatalist("buildingOptions", buildings);
-      populateDatalist("floorOptions", floors);
-      populateDatalist("roomIDOptions", roomIDs);
+      populateDatalistIfChanged("buildingOptions", buildings);
+      populateDatalistIfChanged("floorOptions", floors);
+      populateDatalistIfChanged("roomIDOptions", roomIDs);
     }
 
-    function populateDatalist(elementId, values) {
+    function populateDatalistIfChanged(elementId, values) {
       const datalist = document.getElementById(elementId);
       if (!datalist) return;
+
+      const currentValues = Array.from(datalist.options).map(opt => opt.value);
+      if (JSON.stringify(currentValues) === JSON.stringify(values)) {
+        return; // Tidak ada perubahan, lewati re-render DOM
+      }
+
       datalist.innerHTML = "";
       values.forEach(val => {
         const opt = document.createElement("option");
@@ -732,7 +735,7 @@
         showAlert('Sync Successful!', `${successCount} offline change(s) uploaded successfully.`, 'success');
       }
 
-      await fetchRoomData();
+      fetchRoomData();
       updateNetworkStatus();
     }
 
@@ -897,7 +900,6 @@
       document.getElementById("loginSection").style.display = "block";
     }
 
-    /* ADMIN PANEL FUNCTIONS */
     async function loadAdminUsers() {
       const tbody = document.getElementById("adminUserTableBody");
       tbody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading users...</td></tr>`;
@@ -1011,7 +1013,6 @@
       }
     }
 
-    /* SURVEYOR TAB & DASHBOARD FUNCTIONS */
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -1026,7 +1027,6 @@
 
     async function loadProjectDropdown(selectedProjectToKeep = "") {
       const dropdown = document.getElementById("projectName");
-      dropdown.innerHTML = `<option value="">Loading projects...</option>`;
 
       if (!navigator.onLine) {
         dropdown.innerHTML = `<option value="${currentUser}">${currentUser} (Offline)</option>`;
@@ -1183,9 +1183,14 @@
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     }
 
-    /* RENDER ROOM DATA WITH GROUPING BY BUILDING & FLOOR */
-    async function fetchRoomData() {
-      if (isFetchingRooms) return; // Mencegah re-entry/flickering
+    /* FETCH DATA DENGAN DEBOUNCE UNTUK MENCEGAH PEMANGGILAN BERUNTUN */
+    function fetchRoomData() {
+      if (fetchTimeout) clearTimeout(fetchTimeout);
+      fetchTimeout = setTimeout(executeFetchRoomData, 100);
+    }
+
+    async function executeFetchRoomData() {
+      if (isFetchingRooms) return;
       isFetchingRooms = true;
 
       try {
@@ -1201,29 +1206,26 @@
           return;
         }
 
-        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
+        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        try {
-          const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
 
-          const result = await response.json();
-
-          if (result.status === "success" && result.data) {
-            const mergedData = mergeServerDataWithPending(result.data, activeProject);
-            setCachedRoomData(activeProject, mergedData);
-            renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
-          } else {
-            const cachedData = getCachedRoomData(activeProject);
-            const mergedData = mergeServerDataWithPending(cachedData, activeProject);
-            setCachedRoomData(activeProject, mergedData);
-            renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
-          }
-        } catch (err) {
+        if (result.status === "success" && result.data) {
+          const mergedData = mergeServerDataWithPending(result.data, activeProject);
+          setCachedRoomData(activeProject, mergedData);
+          renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
+        } else {
           const cachedData = getCachedRoomData(activeProject);
           const mergedData = mergeServerDataWithPending(cachedData, activeProject);
-          renderRoomTable(mergedData, true);
+          setCachedRoomData(activeProject, mergedData);
+          renderRoomTable(mergedData, getPendingQueueForProject(activeProject).length > 0);
         }
+      } catch (err) {
+        const activeProject = getSelectedProject();
+        const cachedData = getCachedRoomData(activeProject);
+        const mergedData = mergeServerDataWithPending(cachedData, activeProject);
+        renderRoomTable(mergedData, true);
       } finally {
         isFetchingRooms = false;
       }
@@ -1283,7 +1285,6 @@
       });
     }
 
-    /* DUPLICATE MULTIPLE ROOMS */
     async function duplicateSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
@@ -1395,7 +1396,6 @@
       }
     }
 
-    /* DELETE MULTIPLE ROOMS */
     async function deleteSelectedRooms() {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
       
