@@ -30,37 +30,6 @@
       max-width: 920px;
       padding: 28px;
     }
-    
-    /* Connection Status Banner */
-    .net-status {
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      text-align: center;
-      margin-bottom: 16px;
-      display: none;
-    }
-    .net-status.offline {
-      background-color: #fef3c7;
-      color: #92400e;
-      border: 1px solid #f59e0b;
-      display: block;
-    }
-    .net-status.syncing {
-      background-color: #dbeafe;
-      color: #1e40af;
-      border: 1px solid #3b82f6;
-      display: block;
-    }
-
-    .net-status.failed {
-      background-color: #fee2e2;
-      color: #991b1b;
-      border: 1px solid #ef4444;
-      display: block;
-      cursor: pointer;
-    }
 
     /* Header Section */
     .header-bar {
@@ -183,18 +152,6 @@
     .btn-primary:hover {
       background-color: #15803d;
     }
-    .btn-secondary {
-      width: 100%;
-      background-color: #6b7280;
-      color: white;
-      border: none;
-      padding: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-top: 8px;
-    }
     .action-toolbar {
       display: flex;
       gap: 8px;
@@ -265,18 +222,6 @@
     .btn-edit:hover {
       background-color: #ca8a04;
     }
-    .btn-delete {
-      background-color: #ef4444;
-      color: white;
-      border: none;
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    .btn-delete:hover {
-      background-color: #dc2626;
-    }
 
     /* Table & Grouping Styles */
     .table-responsive {
@@ -319,11 +264,6 @@
       margin-top: 6px;
       cursor: pointer;
     }
-    .forgot-link:hover {
-      text-decoration: underline;
-    }
-    
-    /* Checkbox Alignment & Tags */
     .center-col {
       text-align: center;
       width: 40px;
@@ -333,24 +273,12 @@
       height: 16px;
       cursor: pointer;
     }
-    .offline-tag {
-      background-color: #fef3c7;
-      color: #b45309;
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: bold;
-      margin-left: 6px;
-    }
   </style>
 </head>
 <body>
 
   <div class="container">
     
-    <!-- Status Banner for Connection / Sync -->
-    <div id="netStatusBanner" class="net-status" onclick="onBannerClick()"></div>
-
     <!-- LOGIN FORM -->
     <div id="loginSection">
       <h2 style="text-align: center; margin-top: 0; margin-bottom: 24px; color: #111827;">Facility & Room Data System</h2>
@@ -533,231 +461,17 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSmJvtbwicRJn1sVJGyJSzOzBwmimO_iJ8_PP5gmSs8EvkjhHkFwego8xdr9wgHyAtXQ/exec";
+    const SCRIPT_URL = "ISI_URL_WEB_APP_ANDA_DISINI"; // Ganti dengan URL deployment Web App Anda
     
     let currentUser = "";
     let currentPin  = "";
     let activeEditingRow = null;
-    let isSyncing = false;
 
     function toTitleCase(str) {
       if (!str) return "";
       return str.replace(/\w\S*/g, function(txt) {
         return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
       });
-    }
-
-    let syncTimer = null;
-    let syncAttempt = 0;
-
-    window.addEventListener('online', () => {
-      clearTimeout(syncTimer);
-      syncTimer = null;
-      syncAttempt = 0;
-      updateNetworkStatus();
-    });
-    window.addEventListener('offline', updateNetworkStatus);
-
-    function scheduleSync() {
-      if (syncTimer || isSyncing || !navigator.onLine) return;
-      const delay = Math.min(60000, 2000 * Math.pow(2, syncAttempt));
-      syncTimer = setTimeout(() => {
-        syncTimer = null;
-        syncOfflineQueue();
-      }, delay);
-    }
-
-    function updateNetworkStatus() {
-      const banner = document.getElementById("netStatusBanner");
-      if (!banner || isSyncing) return;
-
-      const queue = getOfflineQueue();
-      const failed = getFailedQueue();
-      banner.style.display = "";
-
-      if (!navigator.onLine) {
-        banner.className = "net-status offline";
-        banner.innerText = `Offline Mode: ${queue.length} pending action(s) queued on device.`;
-      } else if (queue.length > 0) {
-        banner.className = "net-status offline";
-        banner.innerText = `${queue.length} action(s) waiting to sync...`;
-        scheduleSync();
-      } else if (failed.length > 0) {
-        banner.className = "net-status failed";
-        banner.innerText = `${failed.length} action(s) could not be synced. Tap to review.`;
-      } else {
-        banner.className = "net-status";
-      }
-    }
-
-    function onBannerClick() {
-      if (getOfflineQueue().length === 0 && getFailedQueue().length > 0) showFailedQueue();
-    }
-
-    /* OFFLINE QUEUE MANAGEMENT */
-    function getOfflineQueue() {
-      try { return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]"); }
-      catch (e) { return []; }
-    }
-
-    function getFailedQueue() {
-      try { return JSON.parse(localStorage.getItem("offline_failed_queue") || "[]"); }
-      catch (e) { return []; }
-    }
-
-    function addToFailedQueue(item, reason) {
-      const failed = getFailedQueue();
-      failed.push({ ...item, failReason: reason, failedAt: new Date().toISOString() });
-      localStorage.setItem("offline_failed_queue", JSON.stringify(failed));
-    }
-
-    function removeFromOfflineQueue(clientKey) {
-      const queue = getOfflineQueue().filter(q => String(q.clientKey) !== String(clientKey));
-      localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
-    }
-
-    function updateQueueItem(clientKey, changes) {
-      const queue = getOfflineQueue();
-      const idx = queue.findIndex(q => String(q.clientKey) === String(clientKey));
-      if (idx === -1) return false;
-      queue[idx] = { ...queue[idx], ...changes };
-      localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
-      return true;
-    }
-
-    function isDraftId(id) {
-      return !/^\d+$/.test(String(id));
-    }
-
-    function createClientKey(prefix = "CLIENT") {
-      return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    }
-
-    function saveToOfflineQueue(payload) {
-      const queue = getOfflineQueue();
-      if (!payload.clientKey) {
-        payload.clientKey = createClientKey();
-      }
-      payload.tempId = payload.clientKey;
-      payload.queuedAt = payload.queuedAt || new Date().toISOString();
-
-      const existingIndex = queue.findIndex(item => String(item.clientKey) === String(payload.clientKey));
-      if (existingIndex === -1) {
-        queue.push(payload);
-      } else {
-        queue[existingIndex] = { ...queue[existingIndex], ...payload };
-      }
-
-      localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
-      updateNetworkStatus();
-      return payload.clientKey;
-    }
-
-    function getPendingQueueForProject(projectName) {
-      return getOfflineQueue().filter(item => String(item.newProjectName || item.projectName || "") === String(projectName));
-    }
-
-    function buildOfflineDraftFromQueue(item) {
-      const draft = { ...item, isOfflineDraft: true };
-      if (!draft.rowIndex) draft.rowIndex = draft.clientKey;
-      return draft;
-    }
-
-    function mergeServerDataWithPending(serverData, projectName) {
-      const base = Array.isArray(serverData) ? [...serverData] : [];
-      const pending = getPendingQueueForProject(projectName);
-
-      pending.forEach(item => {
-        if (item.action === "create") {
-          const alreadyVisible = base.some(row =>
-            String(row.building || "") === String(item.building || "") &&
-            String(row.floor || "") === String(item.floor || "") &&
-            String(row.roomID || "") === String(item.roomID || "") &&
-            String(row.area || "") === String(item.area || "")
-          );
-          if (!alreadyVisible) base.push(buildOfflineDraftFromQueue(item));
-        } else if (item.action === "editRow") {
-          const idx = base.findIndex(r => String(r.rowIndex) === String(item.rowIndex));
-          if (idx !== -1) base[idx] = buildOfflineDraftFromQueue({ ...item, rowIndex: base[idx].rowIndex });
-        } else if (item.action === "deleteSelected" && Array.isArray(item.selectedRows)) {
-          item.selectedRows.forEach(rid => {
-            const idx = base.findIndex(r => String(r.rowIndex) === String(rid));
-            if (idx !== -1) base.splice(idx, 1);
-          });
-        }
-      });
-
-      return base;
-    }
-
-    /* LOCAL DATA CACHING */
-    function getCachedRoomData(projectName) {
-      const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
-      return allCache[projectName] || [];
-    }
-
-    function setCachedRoomData(projectName, dataArray) {
-      const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
-      allCache[projectName] = dataArray;
-      localStorage.setItem("cached_room_data", JSON.stringify(allCache));
-      updateSuggestions(dataArray);
-    }
-
-    /* SUGGESTIONS & AUTOCOMPLETE */
-    function updateSuggestions(dataArray) {
-      if (!dataArray || !Array.isArray(dataArray)) return;
-
-      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))];
-      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))];
-      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))];
-
-      populateDatalist("buildingOptions", buildings);
-      populateDatalist("floorOptions", floors);
-      populateDatalist("roomIDOptions", roomIDs);
-    }
-
-    function populateDatalist(elementId, values) {
-      const datalist = document.getElementById(elementId);
-      if (!datalist) return;
-      datalist.innerHTML = "";
-      values.forEach(val => {
-        const opt = document.createElement("option");
-        opt.value = val;
-        datalist.appendChild(opt);
-      });
-    }
-
-    async function syncOfflineQueue() {
-      if (!navigator.onLine || isSyncing) return;
-      const queue = getOfflineQueue();
-      if (queue.length === 0) {
-        updateNetworkStatus();
-        return;
-      }
-
-      isSyncing = true;
-      let successCount = 0;
-
-      for (const item of queue) {
-        try {
-          const response = await fetch(SCRIPT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify(item)
-          });
-          const result = await response.json();
-          if (result && result.status === "success") {
-            removeFromOfflineQueue(item.clientKey);
-            successCount++;
-          }
-        } catch (err) {
-          break;
-        }
-      }
-
-      isSyncing = false;
-      if (successCount > 0 && currentUser) await fetchRoomData();
-      updateNetworkStatus();
     }
 
     function escapeHtml(text) {
@@ -826,7 +540,6 @@
             await loadProjectDropdown();
             fetchRoomData();
           }
-          updateNetworkStatus();
         } else {
           showAlert('Login Failed', result.message, 'error');
         }
@@ -1021,8 +734,6 @@
         return;
       }
 
-      const uniqueClientKey = createClientKey("CLIENT");
-
       const payload = {
         action: activeEditingRow ? "editRow" : "create",
         rowIndex: activeEditingRow,
@@ -1034,17 +745,8 @@
         roomID: toTitleCase(document.getElementById("roomID").value.trim()),
         area: document.getElementById("area").value.trim(),
         surface: toTitleCase(document.getElementById("surface").value.trim()),
-        notes: toTitleCase(document.getElementById("notes").value.trim()),
-        clientKey: uniqueClientKey
+        notes: toTitleCase(document.getElementById("notes").value.trim())
       };
-
-      if (!navigator.onLine) {
-        saveToOfflineQueue(payload);
-        showAlert('Saved Locally', 'Device is offline. Saved to local queue.', 'warning');
-        resetEntryForm();
-        fetchRoomData();
-        return;
-      }
 
       try {
         btnSave.disabled = true;
@@ -1071,10 +773,7 @@
           showAlert('Save Failed', result.message || 'Server error', 'error');
         }
       } catch (err) {
-        saveToOfflineQueue(payload);
-        showAlert('Saved Locally', 'Connection lost. Queued offline.', 'warning');
-        resetEntryForm();
-        fetchRoomData();
+        showAlert('Error', 'Gagal terhubung ke server. Periksa koneksi internet Anda.', 'error');
       } finally {
         btnSave.disabled = false;
         btnSave.innerText = "Save Room Data";
@@ -1106,20 +805,16 @@
         const result = await response.json();
 
         if (result.status === "success" && result.data) {
-          const mergedData = mergeServerDataWithPending(result.data, activeProject);
-          setCachedRoomData(activeProject, mergedData);
-          renderRoomTable(mergedData);
+          renderRoomTable(result.data);
         } else {
-          const cachedData = getCachedRoomData(activeProject);
-          renderRoomTable(cachedData);
+          tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
         }
       } catch (err) {
-        const cachedData = getCachedRoomData(activeProject);
-        renderRoomTable(cachedData, true);
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Failed to load room data.</td></tr>`;
       }
     }
 
-    function renderRoomTable(dataList, isOfflineMode = false) {
+    function renderRoomTable(dataList) {
       const tableBody = document.getElementById("roomTableBody");
       tableBody.innerHTML = "";
 
@@ -1127,8 +822,6 @@
         tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
         return;
       }
-
-      updateSuggestions(dataList);
 
       let currentGroupKey = "";
 
@@ -1145,13 +838,12 @@
           tableBody.appendChild(groupTr);
         }
 
-        const offlineBadge = (item.isOfflineDraft || isOfflineMode) ? `<span class="offline-tag">Local Cache</span>` : '';
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td class="center-col"><input type="checkbox" class="row-checkbox" value="${escapeHtml(item.rowIndex)}"></td>
           <td>${escapeHtml(item.building)}</td>
           <td>${escapeHtml(item.floor)}</td>
-          <td>${escapeHtml(item.roomID)} ${offlineBadge}</td>
+          <td>${escapeHtml(item.roomID)}</td>
           <td>${escapeHtml(item.area)}</td>
           <td>${escapeHtml(item.surface)}</td>
           <td>${escapeHtml(item.notes) || "-"}</td>
@@ -1171,23 +863,14 @@
 
       const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
       const activeProject = getSelectedProject();
-      const currentCache = getCachedRoomData(activeProject);
-
-      const buildingsList = [...new Set(currentCache.map(i => i.building).filter(Boolean))];
-      const floorsList    = [...new Set(currentCache.map(i => i.floor).filter(Boolean))];
-
-      const buildingOptionsHtml = buildingsList.map(b => `<option value="${escapeHtml(b)}">`).join('');
-      const floorOptionsHtml    = floorsList.map(f => `<option value="${escapeHtml(f)}">`).join('');
 
       const { value: formValues } = await Swal.fire({
         title: `Duplicate ${selectedRows.length} Room(s)`,
         html:
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
-          `<input id="swal-input-building" list="dupBuildingOpts" class="swal2-input" placeholder="e.g., Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
-          `<datalist id="dupBuildingOpts">${buildingOptionsHtml}</datalist>` +
+          `<input id="swal-input-building" class="swal2-input" placeholder="e.g., Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
-          `<input id="swal-input-floor" list="dupFloorOpts" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">` +
-          `<datalist id="dupFloorOpts">${floorOptionsHtml}</datalist>`,
+          `<input id="swal-input-floor" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">`,
         focusConfirm: false,
         showCancelButton: true,
         confirmButtonText: 'Duplicate Rooms',
@@ -1210,8 +893,7 @@
           targetFloor: formValues.targetFloor,
           surveyorName: currentUser,
           userPin: currentPin,
-          newProjectName: activeProject,
-          clientKey: createClientKey("DUP")
+          newProjectName: activeProject
         };
 
         try {
@@ -1256,8 +938,7 @@
         selectedRows: selectedRows,
         surveyorName: currentUser,
         userPin: currentPin,
-        newProjectName: activeProject,
-        clientKey: createClientKey("DEL")
+        newProjectName: activeProject
       };
 
       try {
@@ -1310,8 +991,6 @@
         showAlert('Error', 'Connection error occurred.', 'error');
       }
     }
-
-    updateNetworkStatus();
   </script>
 </body>
 </html>
