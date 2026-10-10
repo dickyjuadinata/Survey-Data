@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facility & Room Data System</title>
+
+  <!-- SweetAlert2 CSS & JS -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background-color: #f3f4f6;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 920px;
+      padding: 28px;
+    }
+
+    /* Header Section */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 12px;
+    }
+    .header-bar h3 {
+      margin: 0;
+      color: #111827;
+      font-size: 18px;
+    }
+    .user-badge {
+      font-size: 12px;
+      background-color: #ecfdf5;
+      color: #047857;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .admin-badge {
+      font-size: 12px;
+      background-color: #fee2e2;
+      color: #991b1b;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .btn-logout {
+      background-color: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-logout:hover {
+      background-color: #e5e7eb;
+    }
+
+    /* Tab Style */
+    .tab-nav {
+      display: flex;
+      border-bottom: 2px solid #e5e7eb;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      background: none;
+      border: none;
+      font-weight: 600;
+      font-size: 14px;
+      color: #6b7280;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+    .tab-btn.active {
+      color: #16a34a;
+      border-bottom-color: #16a34a;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Form & Input */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #111827;
+      background-color: #ffffff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    textarea {
+      resize: vertical;
+      height: 70px;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      background-color: #16a34a;
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background-color 0.2s;
+    }
+    .btn-primary:hover {
+      background-color: #15803d;
+    }
+    .action-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .btn-reload {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-reload:hover {
+      background-color: #1d4ed8;
+    }
+    .btn-duplicate-main {
+      background-color: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-duplicate-main:hover {
+      background-color: #7c3aed;
+    }
+    .btn-delete-selected {
+      background-color: #ef4444;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-delete-selected:hover {
+      background-color: #dc2626;
+    }
+    .btn-download {
+      background-color: #059669;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-download:hover {
+      background-color: #047857;
+    }
+    .btn-edit {
+      background-color: #eab308;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-edit:hover {
+      background-color: #ca8a04;
+    }
+
+    /* Table & Grouping Styles */
+    .table-responsive {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid #e5e7eb;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f9fafb;
+      font-weight: 600;
+      color: #4b5563;
+    }
+    .group-header-row {
+      background-color: #f3f4f6;
+      font-weight: bold;
+      color: #1f2937;
+    }
+    .group-header-row td {
+      padding: 6px 10px;
+      border-top: 2px solid #d1d5db;
+    }
+    .empty-row {
+      text-align: center;
+      color: #6b7280;
+    }
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: 12px;
+      color: #2563eb;
+      text-decoration: none;
+      margin-top: 6px;
+      cursor: pointer;
+    }
+    .center-col {
+      text-align: center;
+      width: 40px;
+    }
+    .center-col input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- LOGIN FORM -->
+    <div id="loginSection">
+      <h2 style="text-align: center; margin-top: 0; margin-bottom: 24px; color: #111827;">Facility & Room Data System</h2>
+      
+      <form onsubmit="event.preventDefault(); handleLogin();">
+        <div class="form-group">
+          <label for="loginUser">Username</label>
+          <input type="text" id="loginUser" placeholder="e.g., username" required>
+        </div>
+
+        <div class="form-group">
+          <label for="loginPin">PIN / Password</label>
+          <input type="password" id="loginPin" placeholder="Enter PIN / Password" required>
+          <span class="forgot-link" style="cursor: default; color: #6b7280;">Forgot your PIN? Ask the Administrator to reset it.</span>
+        </div>
+
+        <button type="submit" class="btn-primary" id="btnLogin">Login System</button>
+      </form>
+    </div>
+
+    <!-- ADMIN CONTROL PANEL DASHBOARD -->
+    <div id="adminSection" style="display: none;">
+      <div class="header-bar">
+        <div>
+          <h3>Admin Control Panel</h3>
+          <span class="admin-badge" id="displayAdmin">Role: Administrator</span>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+      </div>
+
+      <div class="action-toolbar">
+        <button type="button" class="btn-reload" onclick="loadAdminUsers()">Refresh User List</button>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Current Status</th>
+              <th>Change Status</th>
+              <th style="width: 140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminUserTableBody">
+            <tr>
+              <td colspan="4" class="empty-row">Click Refresh User List to load data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SURVEYOR MAIN DASHBOARD -->
+    <div id="appSection" style="display: none;">
+      
+      <div class="header-bar">
+        <div>
+          <h3>Room Data Form</h3>
+          <span class="user-badge" id="displayUser">User: -</span>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+      </div>
+
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('inputTab')">Input Form</button>
+        <button class="tab-btn" onclick="switchTab('listTab')">Room List & Config</button>
+      </div>
+
+      <form id="roomForm" onsubmit="event.preventDefault(); submitData();">
+        
+        <!-- TAB 1: INPUT FORM -->
+        <div id="inputTab" class="tab-content active">
+          <div class="form-group">
+            <label for="building">Building</label>
+            <input type="text" id="building" list="buildingOptions" placeholder="e.g., Main" required autocomplete="off">
+            <datalist id="buildingOptions"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="floor">Floor</label>
+            <input type="text" id="floor" list="floorOptions" placeholder="e.g., Ground" required autocomplete="off">
+            <datalist id="floorOptions"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="roomID">Room ID / Room Name</label>
+            <input type="text" id="roomID" list="roomIDOptions" placeholder="e.g., Lobby" required autocomplete="off">
+            <datalist id="roomIDOptions"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="area">Area (m²)</label>
+            <input type="number" id="area" placeholder="e.g., 100" step="any" required>
+          </div>
+
+          <div class="form-group">
+            <label for="surface">Surface Type</label>
+            <input type="text" id="surface" list="surfaceOptions" placeholder="Type surface type..." required autocomplete="off">
+            <datalist id="surfaceOptions">
+              <option value="Ceramic"></option>
+              <option value="Carpet"></option>
+              <option value="Terazzo"></option>
+              <option value="Marble"></option>
+              <option value="Granite"></option>
+              <option value="Terracotta"></option>
+              <option value="Vinyl"></option>
+              <option value="Rubber"></option>
+              <option value="Soil"></option>
+              <option value="Con block"></option>
+              <option value="Asphalt"></option>
+              <option value="Parquete"></option>
+              <option value="Epoxy"></option>
+              <option value="Metal"></option>
+              <option value="Stone"></option>
+              <option value="Cement / Concrete"></option>
+            </datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="notes">Notes / Remarks</label>
+            <textarea id="notes" placeholder="Surface condition, color, etc."></textarea>
+          </div>
+
+          <button type="submit" class="btn-primary" id="btnSave">Save Room Data</button>
+        </div>
+
+        <!-- TAB 2: CONFIG & ROOM LIST -->
+        <div id="listTab" class="tab-content">
+          <div class="form-group">
+            <label for="projectName">Project Name (Select Existing)</label>
+            <select id="projectName" onchange="fetchRoomData()">
+              <option value="">-- Select Project --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="newProjectName">Custom / New Project Name</label>
+            <input type="text" id="newProjectName" placeholder="e.g., New Project">
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+
+          <h3>Registered Room List</h3>
+          
+          <div class="action-toolbar">
+            <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
+            <button type="button" class="btn-duplicate-main" onclick="duplicateSelectedRooms()">Duplicate Selected</button>
+            <button type="button" class="btn-delete-selected" onclick="deleteSelectedRooms()">Delete Selected</button>
+            <button type="button" class="btn-download" onclick="downloadSheet()">Download Data</button>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th class="center-col"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"></th>
+                  <th>Building</th>
+                  <th>Floor</th>
+                  <th>Room ID / Name</th>
+                  <th>Area (m²)</th>
+                  <th>Surface Type</th>
+                  <th>Notes / Remarks</th>
+                  <th style="min-width: 80px; text-align: center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="roomTableBody">
+                <tr>
+                  <td colspan="8" class="empty-row">Click Reload List to load data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSmJvtbwicRJn1sVJGyJSzOzBwmimO_iJ8_PP5gmSs8EvkjhHkFwego8xdr9wgHyAtXQ/exec";
+    
+    let currentUser = "";
+    let currentPin  = "";
+    let activeEditingRow = null;
+
+    function toTitleCase(str) {
+      if (!str) return "";
+      return str.replace(/\w\S*/g, function(txt) {
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+      });
+    }
+
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return "";
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/'/g, "&#39;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function showAlert(title, message, iconType = 'info') {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: title,
+          text: message,
+          icon: iconType,
+          confirmButtonColor: '#16a34a',
+          confirmButtonText: 'OK'
+        });
+      } else {
+        alert(`${title}: ${message}`);
+      }
+    }
+
+    /* SUGGESTIONS & AUTOCOMPLETE */
+    function updateSuggestions(dataArray) {
+      if (!dataArray || !Array.isArray(dataArray)) return;
+
+      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))];
+      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))];
+      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))];
+
+      populateDatalist("buildingOptions", buildings);
+      populateDatalist("floorOptions", floors);
+      populateDatalist("roomIDOptions", roomIDs);
+    }
+
+    function populateDatalist(elementId, values) {
+      const datalist = document.getElementById(elementId);
+      if (!datalist) return;
+      datalist.innerHTML = "";
+      values.forEach(val => {
+        const opt = document.createElement("option");
+        opt.value = val;
+        datalist.appendChild(opt);
+      });
+    }
+
+    async function handleLogin() {
+      const userVal = document.getElementById("loginUser").value.trim();
+      const pinVal  = document.getElementById("loginPin").value.trim();
+      const btn     = document.getElementById("btnLogin");
+
+      if (!userVal || !pinVal) {
+        showAlert('Warning', 'Username and PIN are required!', 'warning');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = "Authenticating...";
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "login",
+            surveyorName: userVal,
+            userPin: pinVal
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          currentUser = userVal;
+          currentPin  = pinVal;
+
+          document.getElementById("loginSection").style.display = "none";
+
+          if (result.isAdmin) {
+            document.getElementById("displayAdmin").innerText = `Admin: ${currentUser}`;
+            document.getElementById("adminSection").style.display = "block";
+            loadAdminUsers();
+          } else {
+            document.getElementById("displayUser").innerText = "User: " + currentUser;
+            document.getElementById("appSection").style.display = "block";
+            await loadProjectDropdown();
+            fetchRoomData();
+          }
+        } else {
+          showAlert('Login Failed', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to connect to login server.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Login System";
+      }
+    }
+
+    function handleLogout() {
+      currentUser = "";
+      currentPin  = "";
+      ["loginUser", "loginPin", "building", "floor", "newProjectName"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      resetEntryForm();
+      document.getElementById("adminSection").style.display = "none";
+      document.getElementById("appSection").style.display = "none";
+      document.getElementById("loginSection").style.display = "block";
+    }
+
+    async function adminPost(body) {
+      const response = await fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ ...body, masterKey: currentPin })
+      });
+      return response.json();
+    }
+
+    async function loadAdminUsers() {
+      const tbody = document.getElementById("adminUserTableBody");
+      tbody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading users...</td></tr>`;
+
+      try {
+        const result = await adminPost({ action: "getAllUsers" });
+        if (result.status === "success" && result.users) {
+          tbody.innerHTML = "";
+          if (result.users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-row">No users found.</td></tr>`;
+            return;
+          }
+
+          result.users.forEach(u => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td><b>${escapeHtml(u.username)}</b></td>
+              <td><span>${escapeHtml(u.status)}</span></td>
+              <td>
+                <select class="status-select" style="width: auto; display: inline-block; padding: 4px 8px;">
+                  <option value="PENDING">PENDING</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="BLOCKED">BLOCKED</option>
+                </select>
+                <button type="button" class="btn-edit btn-update-status" style="margin-left: 4px;">Update</button>
+              </td>
+              <td>
+                <button type="button" class="btn-edit btn-reset-pin">Reset PIN</button>
+                <button type="button" class="btn-delete btn-delete-user">Delete User & Files</button>
+              </td>
+            `;
+            const select = tr.querySelector(".status-select");
+            select.value = u.status;
+            tr.querySelector(".btn-update-status").addEventListener("click", () => updateUserStatus(u.username, select.value));
+            tr.querySelector(".btn-reset-pin").addEventListener("click", () => resetUserPin(u.username));
+            tr.querySelector(".btn-delete-user").addEventListener("click", () => deleteUserAndFiles(u.username));
+            tbody.appendChild(tr);
+          });
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection error while fetching user list.', 'error');
+      }
+    }
+
+    async function updateUserStatus(targetUser, newStatus) {
+      try {
+        const result = await adminPost({ action: "updateUserStatus", targetUser, newStatus });
+        if (result.status === "success") {
+          showAlert('Success', result.message, 'success');
+          loadAdminUsers();
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to update user status.', 'error');
+      }
+    }
+
+    async function resetUserPin(targetUser) {
+      const { value: newPin } = await Swal.fire({
+        title: `Reset PIN for '${targetUser}'`,
+        input: 'password',
+        inputPlaceholder: 'New PIN',
+        showCancelButton: true,
+        inputValidator: v => (!v || !v.trim()) ? 'PIN cannot be empty' : undefined
+      });
+      if (!newPin) return;
+
+      try {
+        const result = await adminPost({ action: "resetPin", surveyorName: targetUser, newPin: newPin.trim() });
+        showAlert(result.status === "success" ? 'Success' : 'Reset Failed', result.message, result.status === "success" ? 'success' : 'error');
+      } catch (err) {
+        showAlert('Error', 'Failed to reset PIN.', 'error');
+      }
+    }
+
+    async function deleteUserAndFiles(targetUser) {
+      const confirmResult = await Swal.fire({
+        title: 'Delete User & Files?',
+        text: `Are you sure you want to delete '${targetUser}'?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Yes, Delete All'
+      });
+      if (!confirmResult.isConfirmed) return;
+
+      try {
+        const result = await adminPost({ action: "deleteUser", targetUser });
+        if (result.status === "success") {
+          showAlert('Deleted!', result.message, 'success');
+          loadAdminUsers();
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to delete user.', 'error');
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      if (tabId === 'inputTab') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+      }
+    }
+
+    async function loadProjectDropdown(selectedProjectToKeep = "") {
+      const dropdown = document.getElementById("projectName");
+      dropdown.innerHTML = `<option value="">Loading projects...</option>`;
+
+      try {
+        const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
+        const result = await response.json();
+
+        if (result.status === "success") {
+          dropdown.innerHTML = `<option value="">-- Select Project --</option>`;
+          if (result.projects && result.projects.length > 0) {
+            result.projects.forEach(proj => {
+              const opt = document.createElement("option");
+              opt.value = proj;
+              opt.innerText = proj;
+              dropdown.appendChild(opt);
+            });
+          }
+          if (selectedProjectToKeep) {
+            dropdown.value = selectedProjectToKeep;
+          }
+        }
+      } catch (err) {
+        dropdown.innerHTML = `<option value="">Failed to load projects</option>`;
+      }
+    }
+
+    function getSelectedProject() {
+      const customInput = document.getElementById("newProjectName");
+      const selectDropdown = document.getElementById("projectName");
+      
+      const customProj = customInput ? toTitleCase(customInput.value.trim()) : "";
+      const selectProj = selectDropdown ? selectDropdown.value.trim() : "";
+
+      if (customProj !== "") return customProj;
+      if (selectProj !== "") return selectProj;
+      return "";
+    }
+
+    function resetEntryForm() {
+      ["roomID", "area", "surface", "notes"].forEach(id => { document.getElementById(id).value = ""; });
+      activeEditingRow = null;
+    }
+
+    async function submitData() {
+      const btnSave = document.getElementById("btnSave");
+      const activeProject = getSelectedProject();
+      
+      if (!activeProject) {
+        showAlert('Warning', 'Silakan pilih atau buat nama proyek terlebih dahulu pada tab "Room List & Config"!', 'warning');
+        switchTab('listTab');
+        return;
+      }
+
+      const payload = {
+        action: activeEditingRow ? "editRow" : "create",
+        rowIndex: activeEditingRow,
+        surveyorName: currentUser,
+        userPin: currentPin,
+        newProjectName: activeProject,
+        building: toTitleCase(document.getElementById("building").value.trim()),
+        floor: toTitleCase(document.getElementById("floor").value.trim()),
+        roomID: toTitleCase(document.getElementById("roomID").value.trim()),
+        area: document.getElementById("area").value.trim(),
+        surface: toTitleCase(document.getElementById("surface").value.trim()),
+        notes: toTitleCase(document.getElementById("notes").value.trim())
+      };
+
+      try {
+        btnSave.disabled = true;
+        btnSave.innerText = "Saving Data...";
+
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          showAlert('Success!', result.message, 'success');
+          resetEntryForm();
+          if (document.getElementById("newProjectName")) {
+            document.getElementById("newProjectName").value = "";
+          }
+
+          await loadProjectDropdown(activeProject);
+          fetchRoomData();
+        } else {
+          showAlert('Save Failed', result.message || 'Server error', 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Gagal terhubung ke server. Periksa koneksi internet Anda.', 'error');
+      } finally {
+        btnSave.disabled = false;
+        btnSave.innerText = "Save Room Data";
+      }
+    }
+
+    function toggleSelectAll(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.row-checkbox');
+      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    }
+
+    async function fetchRoomData() {
+      const tableBody = document.getElementById("roomTableBody");
+      const selectAllCb = document.getElementById("selectAllCheckbox");
+      if (selectAllCb) selectAllCb.checked = false;
+
+      const activeProject = getSelectedProject();
+      if (!activeProject) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Please select or create a project first.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
+
+      try {
+        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const result = await response.json();
+
+        if (result.status === "success" && result.data) {
+          updateSuggestions(result.data); // Memperbarui autokomplet berdasarkan data dari server
+          renderRoomTable(result.data);
+        } else {
+          tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
+        }
+      } catch (err) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Failed to load room data.</td></tr>`;
+      }
+    }
+
+    function renderRoomTable(dataList) {
+      const tableBody = document.getElementById("roomTableBody");
+      tableBody.innerHTML = "";
+
+      if (!dataList || dataList.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
+        return;
+      }
+
+      let currentGroupKey = "";
+
+      dataList.forEach(item => {
+        const building = item.building || "Unspecified Building";
+        const floor    = item.floor || "Unspecified Floor";
+        const groupKey = `${building} - ${floor}`;
+
+        if (groupKey !== currentGroupKey) {
+          currentGroupKey = groupKey;
+          const groupTr = document.createElement("tr");
+          groupTr.className = "group-header-row";
+          groupTr.innerHTML = `<td colspan="8">Building: ${escapeHtml(building)} &nbsp;|&nbsp; Floor: ${escapeHtml(floor)}</td>`;
+          tableBody.appendChild(groupTr);
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="center-col"><input type="checkbox" class="row-checkbox" value="${escapeHtml(item.rowIndex)}"></td>
+          <td>${escapeHtml(item.building)}</td>
+          <td>${escapeHtml(item.floor)}</td>
+          <td>${escapeHtml(item.roomID)}</td>
+          <td>${escapeHtml(item.area)}</td>
+          <td>${escapeHtml(item.surface)}</td>
+          <td>${escapeHtml(item.notes) || "-"}</td>
+          <td style="text-align: center;"><button class="btn-edit" type="button">Edit</button></td>
+        `;
+        tr.querySelector(".btn-edit").addEventListener("click", () => editRow(item));
+        tableBody.appendChild(tr);
+      });
+    }
+
+    async function duplicateSelectedRooms() {
+      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+      if (selectedCheckboxes.length === 0) {
+        showAlert('Warning', 'Please select at least one room to duplicate!', 'warning');
+        return;
+      }
+
+      const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
+      const activeProject = getSelectedProject();
+
+      const { value: formValues } = await Swal.fire({
+        title: `Duplicate ${selectedRows.length} Room(s)`,
+        html:
+          '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
+          `<input id="swal-input-building" class="swal2-input" placeholder="e.g., Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
+          '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
+          `<input id="swal-input-floor" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">`,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Duplicate Rooms',
+        preConfirm: () => {
+          const targetBuilding = toTitleCase(document.getElementById('swal-input-building').value.trim());
+          const targetFloor = toTitleCase(document.getElementById('swal-input-floor').value.trim());
+          if (!targetBuilding || !targetFloor) {
+            Swal.showValidationMessage('Target building and floor cannot be empty!');
+            return false;
+          }
+          return { targetBuilding, targetFloor };
+        }
+      });
+
+      if (formValues) {
+        const payload = {
+          action: "duplicateSelected",
+          selectedRows: selectedRows,
+          targetBuilding: formValues.targetBuilding,
+          targetFloor: formValues.targetFloor,
+          surveyorName: currentUser,
+          userPin: currentPin,
+          newProjectName: activeProject
+        };
+
+        try {
+          const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (result.status === "success") {
+            showAlert('Success!', result.message, 'success');
+            fetchRoomData();
+          } else {
+            showAlert('Error', result.message, 'error');
+          }
+        } catch (err) {
+          showAlert('Error', 'Connection failed.', 'error');
+        }
+      }
+    }
+
+    async function deleteSelectedRooms() {
+      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+      if (selectedCheckboxes.length === 0) {
+        showAlert('Warning', 'Please select at least one room to delete!', 'warning');
+        return;
+      }
+
+      const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
+      const confirmResult = await Swal.fire({
+        title: 'Delete Selected Rooms?',
+        text: `Are you sure you want to delete ${selectedRows.length} selected room(s)?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Delete All'
+      });
+      if (!confirmResult.isConfirmed) return;
+
+      const activeProject = getSelectedProject();
+      const payload = {
+        action: "deleteSelected",
+        selectedRows: selectedRows,
+        surveyorName: currentUser,
+        userPin: currentPin,
+        newProjectName: activeProject
+      };
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (result.status === "success") {
+          showAlert('Deleted!', result.message, 'success');
+          fetchRoomData();
+        } else {
+          showAlert('Error', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection failed.', 'error');
+      }
+    }
+
+    function editRow(item) {
+      activeEditingRow = item.rowIndex;
+      document.getElementById("building").value = item.building || "";
+      document.getElementById("floor").value = item.floor || "";
+      document.getElementById("roomID").value = item.roomID || "";
+      document.getElementById("area").value = item.area || "";
+      document.getElementById("surface").value = item.surface || "";
+      document.getElementById("notes").value = item.notes || "";
+      switchTab('inputTab');
+    }
+
+    async function downloadSheet() {
+      const activeProject = getSelectedProject();
+      if (!activeProject) {
+        showAlert('Warning', 'Please select a project first.', 'warning');
+        return;
+      }
+
+      try {
+        const downloadApiUrl = `${SCRIPT_URL}?action=downloadSheet&projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}&format=xlsx`;
+        const response = await fetch(downloadApiUrl);
+        const result = await response.json();
+
+        if (result.status === "success" && result.downloadUrl) {
+          window.open(result.downloadUrl, '_blank');
+        } else {
+          showAlert('Download Failed', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection error occurred.', 'error');
+      }
+    }
+  </script>
+</body>
+</html>
