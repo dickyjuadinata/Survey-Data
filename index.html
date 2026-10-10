@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Facility & Room Data System (OptiSpace)</title>
+  <title>Facility & Room Data System</title>
 
   <!-- Tailwind CSS & Lucide Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -207,7 +207,7 @@
       </form>
     </div>
 
-    <!-- ADMIN CONTROL PANEL DASHBOARD (Desain CoreGrip & Fitur Lengkap Admin) -->
+    <!-- ADMIN CONTROL PANEL DASHBOARD (Dengan User Management & Activity Logs) -->
     <div id="adminSection" style="display: none;" class="w-full space-y-6">
       <div class="themed-header p-6 rounded-2xl shadow-xl flex justify-between items-center flex-wrap gap-4">
         <div>
@@ -242,7 +242,32 @@
         </div>
       </div>
 
-      <!-- Detail Profil Pengguna (Fitur Profil User) -->
+      <!-- Activity Logs Card -->
+      <div class="themed-card p-6 rounded-2xl shadow-xl space-y-4 w-full">
+        <h3 class="font-bold text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
+          <i data-lucide="file-text" class="w-4 h-4"></i> System Activity Audit Logs
+        </h3>
+        <div class="overflow-y-auto max-h-80 custom-scrollbar rounded-xl border border-gray-200 dark:border-slate-700">
+          <table class="w-full text-xs text-left">
+            <thead class="themed-table-header sticky top-0 font-semibold">
+              <tr>
+                <th class="p-3">Timestamp</th>
+                <th class="p-3">User</th>
+                <th class="p-3">Action</th>
+                <th class="p-3">Result</th>
+                <th class="p-3">Details</th>
+              </tr>
+            </thead>
+            <tbody id="adminLogsTable" class="divide-y divide-gray-200 dark:divide-slate-700/60">
+              <tr>
+                <td colspan="5" class="p-6 text-center themed-text-muted">No logs recorded yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Detail Profil Pengguna -->
       <div id="adminUserDetailContainer" class="hidden themed-card p-6 rounded-2xl shadow-xl space-y-4 w-full border-2 border-blue-500/30">
         <div class="flex justify-between items-center">
           <h3 class="font-bold text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2" id="userDetailTitle">
@@ -585,56 +610,79 @@
       const response = await fetch(SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ ...body, masterKey: currentPin })
+        body: JSON.stringify({ ...body, surveyorName: currentUser, masterKey: currentPin })
       });
       return response.json();
     }
 
     async function loadAdminUsers() {
       const tbody = document.getElementById("adminUserTableBody");
+      const logsTbody = document.getElementById("adminLogsTable");
       tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center themed-text-muted">Loading users...</td></tr>`;
+      logsTbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center themed-text-muted">Loading logs...</td></tr>`;
 
       try {
         const result = await adminPost({ action: "getAllUsers" });
-        if (result.status === "success" && result.users) {
-          adminFetchedUsers = result.users;
+        if (result.status === "success") {
+          adminFetchedUsers = result.users || [];
           tbody.innerHTML = "";
-          if (result.users.length === 0) {
+          if (adminFetchedUsers.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center themed-text-muted">No users found.</td></tr>`;
-            return;
+          } else {
+            adminFetchedUsers.forEach(u => {
+              const tr = document.createElement("tr");
+              tr.className = "hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors";
+              tr.innerHTML = `
+                <td class="p-3 font-semibold">${escapeHtml(u.username)}</td>
+                <td class="p-3"><span>${escapeHtml(u.status)}</span></td>
+                <td class="p-3">
+                  <select class="status-select themed-input border rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+                    <option value="PENDING">PENDING</option>
+                    <option value="APPROVED">APPROVED</option>
+                    <option value="BLOCKED">BLOCKED</option>
+                  </select>
+                  <button type="button" class="btn-update-status ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">Update</button>
+                </td>
+                <td class="p-3 text-center space-x-1">
+                  <button type="button" class="btn-view-profile bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Profile</button>
+                  <button type="button" class="btn-reset-pin bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Reset</button>
+                  <button type="button" class="btn-delete-user bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Delete</button>
+                </td>
+              `;
+              const select = tr.querySelector(".status-select");
+              select.value = u.status;
+              tr.querySelector(".btn-update-status").addEventListener("click", () => updateUserStatus(u.username, select.value));
+              tr.querySelector(".btn-view-profile").addEventListener("click", () => viewUserProfile(u.username));
+              tr.querySelector(".btn-reset-pin").addEventListener("click", () => resetUserPin(u.username));
+              tr.querySelector(".btn-delete-user").addEventListener("click", () => deleteUserAndFiles(u.username));
+              tbody.appendChild(tr);
+            });
           }
 
-          result.users.forEach(u => {
-            const tr = document.createElement("tr");
-            tr.className = "hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors";
-            tr.innerHTML = `
-              <td class="p-3 font-semibold">${escapeHtml(u.username)}</td>
-              <td class="p-3"><span>${escapeHtml(u.status)}</span></td>
-              <td class="p-3">
-                <select class="status-select themed-input border rounded-lg px-2.5 py-1.5 text-xs font-semibold">
-                  <option value="PENDING">PENDING</option>
-                  <option value="APPROVED">APPROVED</option>
-                  <option value="BLOCKED">BLOCKED</option>
-                </select>
-                <button type="button" class="btn-update-status ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">Update</button>
-              </td>
-              <td class="p-3 text-center space-x-1">
-                <button type="button" class="btn-view-profile bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Profile</button>
-                <button type="button" class="btn-reset-pin bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Reset</button>
-                <button type="button" class="btn-delete-user bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Delete</button>
-              </td>
-            `;
-            const select = tr.querySelector(".status-select");
-            select.value = u.status;
-            tr.querySelector(".btn-update-status").addEventListener("click", () => updateUserStatus(u.username, select.value));
-            tr.querySelector(".btn-view-profile").addEventListener("click", () => viewUserProfile(u.username));
-            tr.querySelector(".btn-reset-pin").addEventListener("click", () => resetUserPin(u.username));
-            tr.querySelector(".btn-delete-user").addEventListener("click", () => deleteUserAndFiles(u.username));
-            tbody.appendChild(tr);
-          });
+          // Fetch Activity Logs
+          const logRes = await adminPost({ action: "getActivityLogs" });
+          logsTbody.innerHTML = "";
+          if (logRes.status === "success" && logRes.logs && logRes.logs.length > 0) {
+            logRes.logs.forEach(l => {
+              const ltr = document.createElement("tr");
+              ltr.className = "hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors";
+              ltr.innerHTML = `
+                <td class="p-3 themed-text-muted">${escapeHtml(l.timestamp)}</td>
+                <td class="p-3 font-semibold">${escapeHtml(l.username)}</td>
+                <td class="p-3">${escapeHtml(l.action)}</td>
+                <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${l.result === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${escapeHtml(l.result)}</span></td>
+                <td class="p-3 themed-text-muted">${escapeHtml(l.details)}</td>
+              `;
+              logsTbody.appendChild(ltr);
+            });
+          } else {
+            logsTbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center themed-text-muted">No activity logs recorded.</td></tr>`;
+          }
+        } else {
+          showAlert('Error', result.message || 'Failed to load admin console.', 'error');
         }
       } catch (err) {
-        showAlert('Error', 'Connection error while fetching user list.', 'error');
+        showAlert('Error', 'Connection error while fetching admin data.', 'error');
       }
     }
 
@@ -659,7 +707,7 @@
         </div>
         <div class="themed-subcard p-3 rounded-xl border">
           <span class="text-xs themed-text-muted block">Role</span>
-          <span class="text-base font-bold">Surveyor</span>
+          <span class="text-base font-bold">${escapeHtml(uObj.role || 'USER')}</span>
         </div>
       `;
       lucide.createIcons();
