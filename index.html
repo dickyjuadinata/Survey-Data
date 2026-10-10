@@ -461,7 +461,7 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSmJvtbwicRJn1sVJGyJSzOzBwmimO_iJ8_PP5gmSs8EvkjhHkFwego8xdr9wgHyAtXQ/exec"; // Ganti dengan URL deployment Web App Anda
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSmJvtbwicRJn1sVJGyJSzOzBwmimO_iJ8_PP5gmSs8EvkjhHkFwego8xdr9wgHyAtXQ/exec";
     
     let currentUser = "";
     let currentPin  = "";
@@ -496,6 +496,30 @@
       } else {
         alert(`${title}: ${message}`);
       }
+    }
+
+    /* SUGGESTIONS & AUTOCOMPLETE */
+    function updateSuggestions(dataArray) {
+      if (!dataArray || !Array.isArray(dataArray)) return;
+
+      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))];
+      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))];
+      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))];
+
+      populateDatalist("buildingOptions", buildings);
+      populateDatalist("floorOptions", floors);
+      populateDatalist("roomIDOptions", roomIDs);
+    }
+
+    function populateDatalist(elementId, values) {
+      const datalist = document.getElementById(elementId);
+      if (!datalist) return;
+      datalist.innerHTML = "";
+      values.forEach(val => {
+        const opt = document.createElement("option");
+        opt.value = val;
+        datalist.appendChild(opt);
+      });
     }
 
     async function handleLogin() {
@@ -805,6 +829,7 @@
         const result = await response.json();
 
         if (result.status === "success" && result.data) {
+          updateSuggestions(result.data); // Memperbarui autokomplet berdasarkan data dari server
           renderRoomTable(result.data);
         } else {
           tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
