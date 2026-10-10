@@ -1,538 +1,1317 @@
-/**
- * OptiSpace & AppMaster Boilerplate Backend API
- * File: kode.gs
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facility & Room Data System</title>
 
-const MASTER_DB_NAME = "OptiSpace_Master_DB";
-const TARGET_FOLDER_ID = "1P0AwSQocKsgZBjUn9E7tIm6pYpcUFTRi";
-const TEMPLATE_SPREADSHEET_ID = "11oonDpwog2LcQ77Fp7JbMxSZDX-h2DVVRZilqaIa5nw";
-const SESSION_TTL_SECONDS = 21600;
-const PASSWORD_ITERATIONS = 2000;
+  <!-- SweetAlert2 CSS & JS -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-function jsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function logAudit(username, action, result, target, operationId, details) {
-  try {
-    var ss = getMasterSpreadsheet();
-    if (!ss) return;
-    var sheet = ss.getSheetByName("ACTIVITY_LOGS");
-    if (!sheet) {
-      sheet = ss.insertSheet("ACTIVITY_LOGS");
-      sheet.appendRow(["Timestamp", "Username", "Action", "Result", "Target", "Operation ID", "Details"]);
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    sheet.appendRow([
-      new Date().toISOString(),
-      String(username || "SYSTEM"),
-      String(action || ""),
-      String(result || ""),
-      String(target || ""),
-      String(operationId || ""),
-      String(details || "").slice(0, 1000)
-    ]);
-  } catch (e) {
-    console.error("Audit log failed: " + String(e));
-  }
-}
-
-function bytesToHex_(bytes) {
-  return bytes.map(function (b) {
-    var v = b < 0 ? b + 256 : b;
-    return ("0" + v.toString(16)).slice(-2);
-  }).join("");
-}
-
-function randomHex_(length) {
-  var bytes = Utilities.newBlob(Utilities.getUuid()).getBytes();
-  return bytesToHex_(bytes).slice(0, length);
-}
-
-function derivePinHashV2_(pin, salt, iterations) {
-  var value = Utilities.computeDigest(
-    Utilities.DigestAlgorithm.SHA_256,
-    String(salt) + String(pin),
-    Utilities.Charset.UTF_8
-  );
-  for (var i = 1; i < iterations; i++) {
-    value = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value);
-  }
-  return bytesToHex_(value);
-}
-
-function hashPin(pin) {
-  pin = String(pin || "").trim();
-  if (!pin) throw new Error("PIN/Password cannot be empty.");
-  var salt = randomHex_(32);
-  return [
-    "s256v2",
-    salt,
-    PASSWORD_ITERATIONS,
-    derivePinHashV2_(pin, salt, PASSWORD_ITERATIONS)
-  ].join("$");
-}
-
-function verifyPin(storedPin, suppliedPin) {
-  var stored = String(storedPin || "").trim();
-  var supplied = String(suppliedPin || "").trim();
-  if (!stored || !supplied) return false;
-
-  if (stored.indexOf("s256v2$") === 0) {
-    var parts = stored.split("$");
-    if (parts.length !== 4) return false;
-    var salt = String(parts[1] || "");
-    var iterations = parseInt(parts[2], 10);
-    if (!isFinite(iterations)) return false;
-    iterations = Math.min(Math.max(iterations, 1000), 50000);
-    var expectedHash = String(parts[3] || "");
-    return derivePinHashV2_(supplied, salt, iterations) === expectedHash;
-  }
-  return stored === supplied;
-}
-
-function getFolder_() {
-  return DriveApp.getFolderById(TARGET_FOLDER_ID);
-}
-
-function getMasterSpreadsheet() {
-  var props = PropertiesService.getScriptProperties();
-  var configuredId = String(props.getProperty("MASTER_SS_ID") || "").trim();
-
-  if (configuredId) {
-    try {
-      var ss = SpreadsheetApp.openById(configuredId);
-      ensureMasterSheets_(ss);
-      return ss;
-    } catch (e) {
-      props.deleteProperty("MASTER_SS_ID");
+    body {
+      background-color: #f3f4f6;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
-  }
-
-  var folder = getFolder_();
-  var files = folder.getFilesByName(MASTER_DB_NAME);
-
-  if (files.hasNext()) {
-    var existing = SpreadsheetApp.open(files.next());
-    props.setProperty("MASTER_SS_ID", existing.getId());
-    ensureMasterSheets_(existing);
-    return existing;
-  }
-
-  var newSS = SpreadsheetApp.create(MASTER_DB_NAME);
-  DriveApp.getFileById(newSS.getId()).moveTo(folder);
-  props.setProperty("MASTER_SS_ID", newSS.getId());
-  ensureMasterSheets_(newSS);
-  return newSS;
-}
-
-function ensureMasterSheets_(ss) {
-  var sheet = ss.getSheetByName("USERS");
-  if (!sheet) {
-    sheet = ss.insertSheet("USERS");
-    sheet.appendRow(["Username", "PIN", "Status", "Role", "Created At"]);
-    sheet.appendRow(["admin", hashPin("admin123"), "ACTIVE", "ADMIN", new Date().toISOString()]);
-  }
-  var logSheet = ss.getSheetByName("ACTIVITY_LOGS");
-  if (!logSheet) {
-    logSheet = ss.insertSheet("ACTIVITY_LOGS");
-    logSheet.appendRow(["Timestamp", "Username", "Action", "Result", "Target", "Operation ID", "Details"]);
-  }
-}
-
-function getOrCreateProjectFile_(username, projectName) {
-  var safeUser = String(username || "").trim();
-  var safeProject = String(projectName || "").trim();
-  
-  if (!safeProject || safeProject.toLowerCase() === safeUser.toLowerCase()) {
-    return null;
-  }
-
-  var fileName = "Analysis - " + safeUser + " - " + safeProject;
-  var folder = getFolder_();
-  var files = folder.getFilesByName(fileName);
-
-  if (files.hasNext()) {
-    return SpreadsheetApp.open(files.next());
-  }
-
-  var templateFile = DriveApp.getFileById(TEMPLATE_SPREADSHEET_ID);
-  var copiedFile = templateFile.makeCopy(fileName, folder);
-  var newSs = SpreadsheetApp.openById(copiedFile.getId());
-
-  var areasSheet = newSs.getSheetByName("Areas");
-  if (!areasSheet) {
-    areasSheet = newSs.insertSheet("Areas");
-  }
-
-  return newSs;
-}
-
-function verifyDirectAuth_(username, pin) {
-  username = String(username || "").trim();
-  pin = String(pin || "").trim();
-  if (!username || !pin) return { valid: false, isAdmin: false };
-
-  var ss = getMasterSpreadsheet();
-  var sheet = ss.getSheetByName("USERS");
-  var rows = sheet.getDataRange().getValues();
-
-  for (var i = 1; i < rows.length; i++) {
-    var u = String(rows[i][0]).trim();
-    var storedPin = String(rows[i][1]).trim();
-    var status = String(rows[i][2]).trim().toUpperCase();
-    var role = String(rows[i][3] || "USER").trim().toUpperCase();
-
-    if (u.toLowerCase() === username.toLowerCase() && verifyPin(storedPin, pin)) {
-      if (role === "ADMIN") return { valid: true, isAdmin: true, username: u };
-      if (status === "ACTIVE" || status === "APPROVED") return { valid: true, isAdmin: false, username: u };
-      if (status === "PENDING") throw new Error("Akun Anda masih PENDING (menunggu persetujuan Administrator).");
-      if (status === "BLOCKED") throw new Error("Akun Anda telah diblokir oleh Administrator.");
+    .container {
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 920px;
+      padding: 28px;
     }
-  }
-
-  if (username.toLowerCase() !== "admin") {
-    sheet.appendRow([username, hashPin(pin), "PENDING", "USER", new Date().toISOString()]);
-    throw new Error("Akun baru terdeteksi. Pendaftaran dikirim dan berstatus PENDING. Hubungi Admin.");
-  }
-
-  return { valid: false, isAdmin: false };
-}
-
-function getFirstEmptyRow_(sheet) {
-  var values = sheet.getRange("F:F").getValues();
-  for (var i = 1; i < values.length; i++) {
-    if (!values[i][0] || String(values[i][0]).trim() === "") {
-      return i + 1;
+    
+    /* Connection Status Banner */
+    .net-status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 16px;
+      display: none;
     }
-  }
-  return Math.max(2, sheet.getLastRow() + 1);
-}
-
-function handleLogin(data) {
-  var username = String(data.surveyorName || data.username || "").trim();
-  var pin = String(data.userPin || data.pin || "").trim();
-
-  try {
-    var auth = verifyDirectAuth_(username, pin);
-    if (auth.valid) {
-      logAudit(username, auth.isAdmin ? "LOGIN_ADMIN" : "LOGIN_USER", "SUCCESS", "AUTH", "", "Login berhasil.");
-      return jsonResponse({ status: "success", message: "Login berhasil.", isAdmin: auth.isAdmin });
+    .net-status.offline {
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+      display: block;
     }
-    return jsonResponse({ status: "error", message: "Username atau PIN salah." });
-  } catch (err) {
-    return jsonResponse({ status: "error", message: err.message });
-  }
-}
-
-function handleGetProjects(params) {
-  var username = String(params.surveyorName || "").trim();
-  var pin = String(params.userPin || "").trim();
-
-  var auth = verifyDirectAuth_(username, pin);
-  if (!auth.valid) return jsonResponse({ status: "error", message: "Autentikasi gagal." });
-
-  var folder = getFolder_();
-  var files = folder.getFiles();
-  var projects = [];
-  var prefix = "Analysis - " + username + " -";
-
-  while (files.hasNext()) {
-    var file = files.next();
-    var name = file.getName();
-    if (name.indexOf(prefix) === 0) {
-      projects.push(name.replace(prefix, "").trim());
+    .net-status.syncing {
+      background-color: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #3b82f6;
+      display: block;
     }
-  }
 
-  return jsonResponse({ status: "success", projects: projects });
-}
+    .net-status.failed {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #ef4444;
+      display: block;
+      cursor: pointer;
+    }
 
-function handleGetRoomData(params) {
-  var username = String(params.surveyorName || "").trim();
-  var pin = String(params.userPin || "").trim();
+    /* Header Section */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 12px;
+    }
+    .header-bar h3 {
+      margin: 0;
+      color: #111827;
+      font-size: 18px;
+    }
+    .user-badge {
+      font-size: 12px;
+      background-color: #ecfdf5;
+      color: #047857;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .admin-badge {
+      font-size: 12px;
+      background-color: #fee2e2;
+      color: #991b1b;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .btn-logout {
+      background-color: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-logout:hover {
+      background-color: #e5e7eb;
+    }
 
-  var auth = verifyDirectAuth_(username, pin);
-  if (!auth.valid) return jsonResponse({ status: "error", message: "Autentikasi gagal." });
+    /* Tab Style */
+    .tab-nav {
+      display: flex;
+      border-bottom: 2px solid #e5e7eb;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      background: none;
+      border: none;
+      font-weight: 600;
+      font-size: 14px;
+      color: #6b7280;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+    .tab-btn.active {
+      color: #16a34a;
+      border-bottom-color: #16a34a;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
 
-  var projectName = String(params.projectName || "").trim();
-  if (!projectName) {
-    return jsonResponse({ status: "success", data: [] });
-  }
+    /* Form & Input */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #111827;
+      background-color: #ffffff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    textarea {
+      resize: vertical;
+      height: 70px;
+    }
 
-  var projectSs = getOrCreateProjectFile_(username, projectName);
-  if (!projectSs) return jsonResponse({ status: "success", data: [] });
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      background-color: #16a34a;
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background-color 0.2s;
+    }
+    .btn-primary:hover {
+      background-color: #15803d;
+    }
+    .btn-secondary {
+      width: 100%;
+      background-color: #6b7280;
+      color: white;
+      border: none;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .action-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .btn-reload {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-reload:hover {
+      background-color: #1d4ed8;
+    }
+    .btn-duplicate-main {
+      background-color: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-duplicate-main:hover {
+      background-color: #7c3aed;
+    }
+    .btn-delete-selected {
+      background-color: #ef4444;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-delete-selected:hover {
+      background-color: #dc2626;
+    }
+    .btn-download {
+      background-color: #059669;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-download:hover {
+      background-color: #047857;
+    }
+    .btn-edit {
+      background-color: #eab308;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-edit:hover {
+      background-color: #ca8a04;
+    }
+    .btn-delete {
+      background-color: #ef4444;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-delete:hover {
+      background-color: #dc2626;
+    }
 
-  var sheet = projectSs.getSheetByName("Areas");
-  if (!sheet) return jsonResponse({ status: "success", data: [] });
+    /* Table & Grouping Styles */
+    .table-responsive {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid #e5e7eb;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f9fafb;
+      font-weight: 600;
+      color: #4b5563;
+    }
+    .group-header-row {
+      background-color: #f3f4f6;
+      font-weight: bold;
+      color: #1f2937;
+    }
+    .group-header-row td {
+      padding: 6px 10px;
+      border-top: 2px solid #d1d5db;
+    }
+    .empty-row {
+      text-align: center;
+      color: #6b7280;
+    }
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: 12px;
+      color: #2563eb;
+      text-decoration: none;
+      margin-top: 6px;
+      cursor: pointer;
+    }
+    .forgot-link:hover {
+      text-decoration: underline;
+    }
+    
+    /* Checkbox Alignment & Tags */
+    .center-col {
+      text-align: center;
+      width: 40px;
+    }
+    .center-col input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .offline-tag {
+      background-color: #fef3c7;
+      color: #b45309;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
 
-  var rows = sheet.getDataRange().getValues();
-  var data = [];
+  <div class="container">
+    
+    <!-- Status Banner for Connection / Sync -->
+    <div id="netStatusBanner" class="net-status" onclick="onBannerClick()"></div>
 
-  for (var i = 1; i < rows.length; i++) {
-    var r = rows[i];
-    var building = r[5];
-    var floor = r[6];
-    var roomID = r[7];
+    <!-- LOGIN FORM -->
+    <div id="loginSection">
+      <h2 style="text-align: center; margin-top: 0; margin-bottom: 24px; color: #111827;">Facility & Room Data System</h2>
+      
+      <form onsubmit="event.preventDefault(); handleLogin();">
+        <div class="form-group">
+          <label for="loginUser">Username</label>
+          <input type="text" id="loginUser" placeholder="e.g., username" required>
+        </div>
 
-    if (!building && !floor && !roomID) continue;
+        <div class="form-group">
+          <label for="loginPin">PIN / Password</label>
+          <input type="password" id="loginPin" placeholder="Enter PIN / Password" required>
+          <span class="forgot-link" style="cursor: default; color: #6b7280;">Forgot your PIN? Ask the Administrator to reset it.</span>
+        </div>
 
-    data.push({
-      rowIndex: i + 1,
-      building: building,
-      floor: floor,
-      roomID: roomID,
-      surface: r[9],
-      area: r[10],
-      notes: ""
+        <button type="submit" class="btn-primary" id="btnLogin">Login System</button>
+      </form>
+    </div>
+
+    <!-- ADMIN CONTROL PANEL DASHBOARD -->
+    <div id="adminSection" style="display: none;">
+      <div class="header-bar">
+        <div>
+          <h3>Admin Control Panel</h3>
+          <span class="admin-badge" id="displayAdmin">Role: Administrator</span>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+      </div>
+
+      <div class="action-toolbar">
+        <button type="button" class="btn-reload" onclick="loadAdminUsers()">Refresh User List</button>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Current Status</th>
+              <th>Change Status</th>
+              <th style="width: 140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminUserTableBody">
+            <tr>
+              <td colspan="4" class="empty-row">Click Refresh User List to load data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SURVEYOR MAIN DASHBOARD -->
+    <div id="appSection" style="display: none;">
+      
+      <div class="header-bar">
+        <div>
+          <h3>Room Data Form</h3>
+          <span class="user-badge" id="displayUser">User: -</span>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+      </div>
+
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('inputTab')">Input Form</button>
+        <button class="tab-btn" onclick="switchTab('listTab')">Room List & Config</button>
+      </div>
+
+      <form id="roomForm" onsubmit="event.preventDefault(); submitData();">
+        
+        <!-- TAB 1: INPUT FORM -->
+        <div id="inputTab" class="tab-content active">
+          <div class="form-group">
+            <label for="building">Building</label>
+            <input type="text" id="building" list="buildingOptions" placeholder="e.g., Main" required autocomplete="off">
+            <datalist id="buildingOptions"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="floor">Floor</label>
+            <input type="text" id="floor" list="floorOptions" placeholder="e.g., Ground" required autocomplete="off">
+            <datalist id="floorOptions"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="roomID">Room ID / Room Name</label>
+            <input type="text" id="roomID" list="roomIDOptions" placeholder="e.g., Lobby" required autocomplete="off">
+            <datalist id="roomIDOptions"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="area">Area (m²)</label>
+            <input type="number" id="area" placeholder="e.g., 100" step="any" required>
+          </div>
+
+          <div class="form-group">
+            <label for="surface">Surface Type</label>
+            <input type="text" id="surface" list="surfaceOptions" placeholder="Type surface type..." required autocomplete="off">
+            <datalist id="surfaceOptions">
+              <option value="Ceramic"></option>
+              <option value="Carpet"></option>
+              <option value="Terazzo"></option>
+              <option value="Marble"></option>
+              <option value="Granite"></option>
+              <option value="Terracotta"></option>
+              <option value="Vinyl"></option>
+              <option value="Rubber"></option>
+              <option value="Soil"></option>
+              <option value="Con block"></option>
+              <option value="Asphalt"></option>
+              <option value="Parquete"></option>
+              <option value="Epoxy"></option>
+              <option value="Metal"></option>
+              <option value="Stone"></option>
+              <option value="Cement / Concrete"></option>
+            </datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="notes">Notes / Remarks</label>
+            <textarea id="notes" placeholder="Surface condition, color, etc."></textarea>
+          </div>
+
+          <button type="submit" class="btn-primary" id="btnSave">Save Room Data</button>
+        </div>
+
+        <!-- TAB 2: CONFIG & ROOM LIST -->
+        <div id="listTab" class="tab-content">
+          <div class="form-group">
+            <label for="projectName">Project Name (Select Existing)</label>
+            <select id="projectName" onchange="fetchRoomData()">
+              <option value="">-- Select Project --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="newProjectName">Custom / New Project Name</label>
+            <input type="text" id="newProjectName" placeholder="e.g., New Project">
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+
+          <h3>Registered Room List</h3>
+          
+          <div class="action-toolbar">
+            <button type="button" class="btn-reload" onclick="fetchRoomData()">Reload List</button>
+            <button type="button" class="btn-duplicate-main" onclick="duplicateSelectedRooms()">Duplicate Selected</button>
+            <button type="button" class="btn-delete-selected" onclick="deleteSelectedRooms()">Delete Selected</button>
+            <button type="button" class="btn-download" onclick="downloadSheet()">Download Data</button>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th class="center-col"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"></th>
+                  <th>Building</th>
+                  <th>Floor</th>
+                  <th>Room ID / Name</th>
+                  <th>Area (m²)</th>
+                  <th>Surface Type</th>
+                  <th>Notes / Remarks</th>
+                  <th style="min-width: 80px; text-align: center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="roomTableBody">
+                <tr>
+                  <td colspan="8" class="empty-row">Click Reload List to load data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSmJvtbwicRJn1sVJGyJSzOzBwmimO_iJ8_PP5gmSs8EvkjhHkFwego8xdr9wgHyAtXQ/exec";
+    
+    let currentUser = "";
+    let currentPin  = "";
+    let activeEditingRow = null;
+    let isSyncing = false;
+
+    function toTitleCase(str) {
+      if (!str) return "";
+      return str.replace(/\w\S*/g, function(txt) {
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+      });
+    }
+
+    let syncTimer = null;
+    let syncAttempt = 0;
+
+    window.addEventListener('online', () => {
+      clearTimeout(syncTimer);
+      syncTimer = null;
+      syncAttempt = 0;
+      updateNetworkStatus();
     });
-  }
+    window.addEventListener('offline', updateNetworkStatus);
 
-  return jsonResponse({ status: "success", data: data });
-}
-
-function handleCreateRoom(data) {
-  var username = String(data.surveyorName || "").trim();
-  var pin = String(data.userPin || "").trim();
-
-  var auth = verifyDirectAuth_(username, pin);
-  if (!auth.valid) return jsonResponse({ status: "error", message: "Autentikasi gagal." });
-
-  var projectName = String(data.newProjectName || "").trim();
-  if (!projectName) {
-    return jsonResponse({ status: "error", message: "Silakan pilih atau buat nama proyek terlebih dahulu." });
-  }
-
-  var projectSs = getOrCreateProjectFile_(username, projectName);
-  if (!projectSs) {
-    return jsonResponse({ status: "error", message: "Nama proyek tidak valid." });
-  }
-
-  var sheet = projectSs.getSheetByName("Areas");
-  var targetRow = getFirstEmptyRow_(sheet);
-
-  sheet.getRange(targetRow, 6).setValue(data.building);  // Kolom F
-  sheet.getRange(targetRow, 7).setValue(data.floor);     // Kolom G
-  sheet.getRange(targetRow, 8).setValue(data.roomID);    // Kolom H
-  sheet.getRange(targetRow, 10).setValue(data.surface); // Kolom J
-  sheet.getRange(targetRow, 11).setValue(data.area);    // Kolom K
-
-  return jsonResponse({ status: "success", message: "Data ruangan berhasil disimpan ke sheet Areas." });
-}
-
-function handleEditRoom(data) {
-  var username = String(data.surveyorName || "").trim();
-  var pin = String(data.userPin || "").trim();
-
-  var auth = verifyDirectAuth_(username, pin);
-  if (!auth.valid) return jsonResponse({ status: "error", message: "Autentikasi gagal." });
-
-  var projectName = String(data.newProjectName || "").trim();
-  var projectSs = getOrCreateProjectFile_(username, projectName);
-  if (!projectSs) return jsonResponse({ status: "error", message: "Proyek tidak ditemukan." });
-
-  var sheet = projectSs.getSheetByName("Areas");
-  var rowIndex = parseInt(data.rowIndex, 10);
-  if (isNaN(rowIndex) || rowIndex < 2) {
-    return jsonResponse({ status: "error", message: "Indeks baris tidak valid." });
-  }
-
-  sheet.getRange(rowIndex, 6).setValue(data.building);  // Kolom F
-  sheet.getRange(rowIndex, 7).setValue(data.floor);     // Kolom G
-  sheet.getRange(rowIndex, 8).setValue(data.roomID);    // Kolom H
-  sheet.getRange(rowIndex, 10).setValue(data.surface); // Kolom J
-  sheet.getRange(rowIndex, 11).setValue(data.area);    // Kolom K
-
-  return jsonResponse({ status: "success", message: "Data ruangan berhasil diperbarui." });
-}
-
-function handleDeleteRooms(data) {
-  var username = String(data.surveyorName || "").trim();
-  var pin = String(data.userPin || "").trim();
-
-  var auth = verifyDirectAuth_(username, pin);
-  if (!auth.valid) return jsonResponse({ status: "error", message: "Autentikasi gagal." });
-
-  var projectName = String(data.newProjectName || "").trim();
-  var projectSs = getOrCreateProjectFile_(username, projectName);
-  if (!projectSs) return jsonResponse({ status: "error", message: "Proyek tidak ditemukan." });
-
-  var sheet = projectSs.getSheetByName("Areas");
-  var selectedRows = data.selectedRows;
-  if (!selectedRows || !Array.isArray(selectedRows)) {
-    return jsonResponse({ status: "error", message: "Tidak ada baris dipilih." });
-  }
-
-  var sortedRows = selectedRows.map(function (r) { return parseInt(r, 10); }).sort(function (a, b) { return b - a; });
-  sortedRows.forEach(function (rowIdx) {
-    if (!isNaN(rowIdx) && rowIdx >= 2) {
-      sheet.deleteRow(rowIdx);
+    function scheduleSync() {
+      if (syncTimer || isSyncing || !navigator.onLine) return;
+      const delay = Math.min(60000, 2000 * Math.pow(2, syncAttempt));
+      syncTimer = setTimeout(() => {
+        syncTimer = null;
+        syncOfflineQueue();
+      }, delay);
     }
-  });
 
-  return jsonResponse({ status: "success", message: "Baris terpilih berhasil dihapus." });
-}
+    function updateNetworkStatus() {
+      const banner = document.getElementById("netStatusBanner");
+      if (!banner || isSyncing) return;
 
-function handleDuplicateRooms(data) {
-  var username = String(data.surveyorName || "").trim();
-  var pin = String(data.userPin || "").trim();
+      const queue = getOfflineQueue();
+      const failed = getFailedQueue();
+      banner.style.display = "";
 
-  var auth = verifyDirectAuth_(username, pin);
-  if (!auth.valid) return jsonResponse({ status: "error", message: "Autentikasi gagal." });
-
-  var projectName = String(data.newProjectName || "").trim();
-  var projectSs = getOrCreateProjectFile_(username, projectName);
-  if (!projectSs) return jsonResponse({ status: "error", message: "Proyek tidak ditemukan." });
-
-  var sheet = projectSs.getSheetByName("Areas");
-  var selectedRows = data.selectedRows;
-  var allValues = sheet.getDataRange().getValues();
-  var count = 0;
-
-  selectedRows.forEach(function (rIdx) {
-    var idx = parseInt(rIdx, 10) - 1;
-    if (idx > 0 && idx < allValues.length) {
-      var row = allValues[idx];
-      var targetRow = getFirstEmptyRow_(sheet);
-
-      sheet.getRange(targetRow, 6).setValue(data.targetBuilding); // Kolom F
-      sheet.getRange(targetRow, 7).setValue(data.targetFloor);    // Kolom G
-      sheet.getRange(targetRow, 8).setValue(row[7]);              // Kolom H (Room ID)
-      sheet.getRange(targetRow, 10).setValue(row[9]);             // Kolom J (Surface)
-      sheet.getRange(targetRow, 11).setValue(row[10]);            // Kolom K (Area)
-      count++;
+      if (!navigator.onLine) {
+        banner.className = "net-status offline";
+        banner.innerText = `Offline Mode: ${queue.length} pending action(s) queued on device.`;
+      } else if (queue.length > 0) {
+        banner.className = "net-status offline";
+        banner.innerText = `${queue.length} action(s) waiting to sync...`;
+        scheduleSync();
+      } else if (failed.length > 0) {
+        banner.className = "net-status failed";
+        banner.innerText = `${failed.length} action(s) could not be synced. Tap to review.`;
+      } else {
+        banner.className = "net-status";
+      }
     }
-  });
 
-  return jsonResponse({ status: "success", message: count + " ruangan berhasil diduplikasi." });
-}
-
-function handleDownloadSheet(params) {
-  var username = String(params.surveyorName || "").trim();
-  var pin = String(params.userPin || "").trim();
-
-  var auth = verifyDirectAuth_(username, pin);
-  if (!auth.valid) return jsonResponse({ status: "error", message: "Autentikasi gagal." });
-
-  var projectName = String(params.projectName || "").trim();
-  var projectSs = getOrCreateProjectFile_(username, projectName);
-  if (!projectSs) return jsonResponse({ status: "error", message: "Proyek belum dipilih." });
-
-  var file = DriveApp.getFileById(projectSs.getId());
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-  return jsonResponse({
-    status: "success",
-    downloadUrl: "https://docs.google.com/spreadsheets/d/" + projectSs.getId() + "/export?format=xlsx"
-  });
-}
-
-function handleGetAllUsers(data) {
-  var auth = verifyDirectAuth_("admin", data.masterKey);
-  if (!auth.valid || !auth.isAdmin) return jsonResponse({ status: "error", message: "Akses ditolak." });
-
-  var ss = getMasterSpreadsheet();
-  var sheet = ss.getSheetByName("USERS");
-  var rows = sheet.getDataRange().getValues();
-  var users = [];
-
-  for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][3]).toUpperCase() !== "ADMIN") {
-      users.push({ username: rows[i][0], status: rows[i][2] });
+    function onBannerClick() {
+      if (getOfflineQueue().length === 0 && getFailedQueue().length > 0) showFailedQueue();
     }
-  }
-  return jsonResponse({ status: "success", users: users });
-}
 
-function handleUpdateUserStatus(data) {
-  var auth = verifyDirectAuth_("admin", data.masterKey);
-  if (!auth.valid || !auth.isAdmin) return jsonResponse({ status: "error", message: "Akses ditolak." });
-
-  var ss = getMasterSpreadsheet();
-  var sheet = ss.getSheetByName("USERS");
-  var rows = sheet.getDataRange().getValues();
-
-  for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).toLowerCase() === String(data.targetUser).toLowerCase()) {
-      sheet.getRange(i + 1, 3).setValue(data.newStatus);
-      return jsonResponse({ status: "success", message: "Status pengguna berhasil diubah." });
+    /* OFFLINE QUEUE MANAGEMENT */
+    function getOfflineQueue() {
+      try { return JSON.parse(localStorage.getItem("offline_survey_queue") || "[]"); }
+      catch (e) { return []; }
     }
-  }
-  return jsonResponse({ status: "error", message: "Pengguna tidak ditemukan." });
-}
 
-function handleResetPin(data) {
-  var auth = verifyDirectAuth_("admin", data.masterKey);
-  if (!auth.valid || !auth.isAdmin) return jsonResponse({ status: "error", message: "Akses ditolak." });
-
-  var ss = getMasterSpreadsheet();
-  var sheet = ss.getSheetByName("USERS");
-  var rows = sheet.getDataRange().getValues();
-
-  for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).toLowerCase() === String(data.surveyorName).toLowerCase()) {
-      sheet.getRange(i + 1, 2).setValue(hashPin(data.newPin));
-      return jsonResponse({ status: "success", message: "PIN berhasil direset." });
+    function getFailedQueue() {
+      try { return JSON.parse(localStorage.getItem("offline_failed_queue") || "[]"); }
+      catch (e) { return []; }
     }
-  }
-  return jsonResponse({ status: "error", message: "Pengguna tidak ditemukan." });
-}
 
-function handleDeleteUser(data) {
-  var auth = verifyDirectAuth_("admin", data.masterKey);
-  if (!auth.valid || !auth.isAdmin) return jsonResponse({ status: "error", message: "Akses ditolak." });
-
-  var ss = getMasterSpreadsheet();
-  var sheet = ss.getSheetByName("USERS");
-  var rows = sheet.getDataRange().getValues();
-
-  for (var i = rows.length - 1; i >= 1; i--) {
-    if (String(rows[i][0]).toLowerCase() === String(data.targetUser).toLowerCase()) {
-      sheet.deleteRow(i + 1);
-      break;
+    function addToFailedQueue(item, reason) {
+      const failed = getFailedQueue();
+      failed.push({ ...item, failReason: reason, failedAt: new Date().toISOString() });
+      localStorage.setItem("offline_failed_queue", JSON.stringify(failed));
     }
-  }
-  return jsonResponse({ status: "success", message: "Pengguna berhasil dihapus." });
-}
 
-function doGet(e) {
-  try {
-    var params = e && e.parameter ? e.parameter : {};
-    var action = String(params.action || "").trim();
-
-    if (action === "getProjects") {
-      return handleGetProjects(params);
-    } else if (action === "downloadSheet") {
-      return handleDownloadSheet(params);
-    } else if (action === "getAllUsers") {
-      return handleGetAllUsers(params);
-    } else {
-      return handleGetRoomData(params);
+    function removeFromOfflineQueue(clientKey) {
+      const queue = getOfflineQueue().filter(q => String(q.clientKey) !== String(clientKey));
+      localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
     }
-  } catch (err) {
-    return jsonResponse({ status: "error", message: err.toString() });
-  }
-}
 
-function doPost(e) {
-  try {
-    if (!e || !e.postData || !e.postData.contents) throw new Error("POST body is missing.");
-    var contents = JSON.parse(e.postData.contents || "{}");
-    var action = String(contents.action || "").trim();
-
-    switch (action) {
-      case "login": return handleLogin(contents);
-      case "create": return handleCreateRoom(contents);
-      case "editRow": return handleEditRoom(contents);
-      case "deleteSelected": return handleDeleteRooms(contents);
-      case "duplicateSelected": return handleDuplicateRooms(contents);
-      case "getAllUsers": return handleGetAllUsers(contents);
-      case "updateUserStatus": return handleUpdateUserStatus(contents);
-      case "resetPin": return handleResetPin(contents);
-      case "deleteUser": return handleDeleteUser(contents);
-      default: return jsonResponse({ status: "error", message: "Aksi tidak dikenali." });
+    function updateQueueItem(clientKey, changes) {
+      const queue = getOfflineQueue();
+      const idx = queue.findIndex(q => String(q.clientKey) === String(clientKey));
+      if (idx === -1) return false;
+      queue[idx] = { ...queue[idx], ...changes };
+      localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
+      return true;
     }
-  } catch (err) {
-    return jsonResponse({ status: "error", message: err.toString() });
-  }
-}
+
+    function isDraftId(id) {
+      return !/^\d+$/.test(String(id));
+    }
+
+    function createClientKey(prefix = "CLIENT") {
+      return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    function saveToOfflineQueue(payload) {
+      const queue = getOfflineQueue();
+      if (!payload.clientKey) {
+        payload.clientKey = createClientKey();
+      }
+      payload.tempId = payload.clientKey;
+      payload.queuedAt = payload.queuedAt || new Date().toISOString();
+
+      const existingIndex = queue.findIndex(item => String(item.clientKey) === String(payload.clientKey));
+      if (existingIndex === -1) {
+        queue.push(payload);
+      } else {
+        queue[existingIndex] = { ...queue[existingIndex], ...payload };
+      }
+
+      localStorage.setItem("offline_survey_queue", JSON.stringify(queue));
+      updateNetworkStatus();
+      return payload.clientKey;
+    }
+
+    function getPendingQueueForProject(projectName) {
+      return getOfflineQueue().filter(item => String(item.newProjectName || item.projectName || "") === String(projectName));
+    }
+
+    function buildOfflineDraftFromQueue(item) {
+      const draft = { ...item, isOfflineDraft: true };
+      if (!draft.rowIndex) draft.rowIndex = draft.clientKey;
+      return draft;
+    }
+
+    function mergeServerDataWithPending(serverData, projectName) {
+      const base = Array.isArray(serverData) ? [...serverData] : [];
+      const pending = getPendingQueueForProject(projectName);
+
+      pending.forEach(item => {
+        if (item.action === "create") {
+          const alreadyVisible = base.some(row =>
+            String(row.building || "") === String(item.building || "") &&
+            String(row.floor || "") === String(item.floor || "") &&
+            String(row.roomID || "") === String(item.roomID || "") &&
+            String(row.area || "") === String(item.area || "")
+          );
+          if (!alreadyVisible) base.push(buildOfflineDraftFromQueue(item));
+        } else if (item.action === "editRow") {
+          const idx = base.findIndex(r => String(r.rowIndex) === String(item.rowIndex));
+          if (idx !== -1) base[idx] = buildOfflineDraftFromQueue({ ...item, rowIndex: base[idx].rowIndex });
+        } else if (item.action === "deleteSelected" && Array.isArray(item.selectedRows)) {
+          item.selectedRows.forEach(rid => {
+            const idx = base.findIndex(r => String(r.rowIndex) === String(rid));
+            if (idx !== -1) base.splice(idx, 1);
+          });
+        }
+      });
+
+      return base;
+    }
+
+    /* LOCAL DATA CACHING */
+    function getCachedRoomData(projectName) {
+      const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
+      return allCache[projectName] || [];
+    }
+
+    function setCachedRoomData(projectName, dataArray) {
+      const allCache = JSON.parse(localStorage.getItem("cached_room_data") || "{}");
+      allCache[projectName] = dataArray;
+      localStorage.setItem("cached_room_data", JSON.stringify(allCache));
+      updateSuggestions(dataArray);
+    }
+
+    /* SUGGESTIONS & AUTOCOMPLETE */
+    function updateSuggestions(dataArray) {
+      if (!dataArray || !Array.isArray(dataArray)) return;
+
+      const buildings = [...new Set(dataArray.map(item => item.building).filter(Boolean))];
+      const floors    = [...new Set(dataArray.map(item => item.floor).filter(Boolean))];
+      const roomIDs   = [...new Set(dataArray.map(item => item.roomID).filter(Boolean))];
+
+      populateDatalist("buildingOptions", buildings);
+      populateDatalist("floorOptions", floors);
+      populateDatalist("roomIDOptions", roomIDs);
+    }
+
+    function populateDatalist(elementId, values) {
+      const datalist = document.getElementById(elementId);
+      if (!datalist) return;
+      datalist.innerHTML = "";
+      values.forEach(val => {
+        const opt = document.createElement("option");
+        opt.value = val;
+        datalist.appendChild(opt);
+      });
+    }
+
+    async function syncOfflineQueue() {
+      if (!navigator.onLine || isSyncing) return;
+      const queue = getOfflineQueue();
+      if (queue.length === 0) {
+        updateNetworkStatus();
+        return;
+      }
+
+      isSyncing = true;
+      let successCount = 0;
+
+      for (const item of queue) {
+        try {
+          const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(item)
+          });
+          const result = await response.json();
+          if (result && result.status === "success") {
+            removeFromOfflineQueue(item.clientKey);
+            successCount++;
+          }
+        } catch (err) {
+          break;
+        }
+      }
+
+      isSyncing = false;
+      if (successCount > 0 && currentUser) await fetchRoomData();
+      updateNetworkStatus();
+    }
+
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return "";
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/'/g, "&#39;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function showAlert(title, message, iconType = 'info') {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: title,
+          text: message,
+          icon: iconType,
+          confirmButtonColor: '#16a34a',
+          confirmButtonText: 'OK'
+        });
+      } else {
+        alert(`${title}: ${message}`);
+      }
+    }
+
+    async function handleLogin() {
+      const userVal = document.getElementById("loginUser").value.trim();
+      const pinVal  = document.getElementById("loginPin").value.trim();
+      const btn     = document.getElementById("btnLogin");
+
+      if (!userVal || !pinVal) {
+        showAlert('Warning', 'Username and PIN are required!', 'warning');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = "Authenticating...";
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "login",
+            surveyorName: userVal,
+            userPin: pinVal
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          currentUser = userVal;
+          currentPin  = pinVal;
+
+          document.getElementById("loginSection").style.display = "none";
+
+          if (result.isAdmin) {
+            document.getElementById("displayAdmin").innerText = `Admin: ${currentUser}`;
+            document.getElementById("adminSection").style.display = "block";
+            loadAdminUsers();
+          } else {
+            document.getElementById("displayUser").innerText = "User: " + currentUser;
+            document.getElementById("appSection").style.display = "block";
+            await loadProjectDropdown();
+            fetchRoomData();
+          }
+          updateNetworkStatus();
+        } else {
+          showAlert('Login Failed', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to connect to login server.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Login System";
+      }
+    }
+
+    function handleLogout() {
+      currentUser = "";
+      currentPin  = "";
+      ["loginUser", "loginPin", "building", "floor", "newProjectName"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      resetEntryForm();
+      document.getElementById("adminSection").style.display = "none";
+      document.getElementById("appSection").style.display = "none";
+      document.getElementById("loginSection").style.display = "block";
+    }
+
+    async function adminPost(body) {
+      const response = await fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ ...body, masterKey: currentPin })
+      });
+      return response.json();
+    }
+
+    async function loadAdminUsers() {
+      const tbody = document.getElementById("adminUserTableBody");
+      tbody.innerHTML = `<tr><td colspan="4" class="empty-row">Loading users...</td></tr>`;
+
+      try {
+        const result = await adminPost({ action: "getAllUsers" });
+        if (result.status === "success" && result.users) {
+          tbody.innerHTML = "";
+          if (result.users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-row">No users found.</td></tr>`;
+            return;
+          }
+
+          result.users.forEach(u => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td><b>${escapeHtml(u.username)}</b></td>
+              <td><span>${escapeHtml(u.status)}</span></td>
+              <td>
+                <select class="status-select" style="width: auto; display: inline-block; padding: 4px 8px;">
+                  <option value="PENDING">PENDING</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="BLOCKED">BLOCKED</option>
+                </select>
+                <button type="button" class="btn-edit btn-update-status" style="margin-left: 4px;">Update</button>
+              </td>
+              <td>
+                <button type="button" class="btn-edit btn-reset-pin">Reset PIN</button>
+                <button type="button" class="btn-delete btn-delete-user">Delete User & Files</button>
+              </td>
+            `;
+            const select = tr.querySelector(".status-select");
+            select.value = u.status;
+            tr.querySelector(".btn-update-status").addEventListener("click", () => updateUserStatus(u.username, select.value));
+            tr.querySelector(".btn-reset-pin").addEventListener("click", () => resetUserPin(u.username));
+            tr.querySelector(".btn-delete-user").addEventListener("click", () => deleteUserAndFiles(u.username));
+            tbody.appendChild(tr);
+          });
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection error while fetching user list.', 'error');
+      }
+    }
+
+    async function updateUserStatus(targetUser, newStatus) {
+      try {
+        const result = await adminPost({ action: "updateUserStatus", targetUser, newStatus });
+        if (result.status === "success") {
+          showAlert('Success', result.message, 'success');
+          loadAdminUsers();
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to update user status.', 'error');
+      }
+    }
+
+    async function resetUserPin(targetUser) {
+      const { value: newPin } = await Swal.fire({
+        title: `Reset PIN for '${targetUser}'`,
+        input: 'password',
+        inputPlaceholder: 'New PIN',
+        showCancelButton: true,
+        inputValidator: v => (!v || !v.trim()) ? 'PIN cannot be empty' : undefined
+      });
+      if (!newPin) return;
+
+      try {
+        const result = await adminPost({ action: "resetPin", surveyorName: targetUser, newPin: newPin.trim() });
+        showAlert(result.status === "success" ? 'Success' : 'Reset Failed', result.message, result.status === "success" ? 'success' : 'error');
+      } catch (err) {
+        showAlert('Error', 'Failed to reset PIN.', 'error');
+      }
+    }
+
+    async function deleteUserAndFiles(targetUser) {
+      const confirmResult = await Swal.fire({
+        title: 'Delete User & Files?',
+        text: `Are you sure you want to delete '${targetUser}'?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Yes, Delete All'
+      });
+      if (!confirmResult.isConfirmed) return;
+
+      try {
+        const result = await adminPost({ action: "deleteUser", targetUser });
+        if (result.status === "success") {
+          showAlert('Deleted!', result.message, 'success');
+          loadAdminUsers();
+        }
+      } catch (err) {
+        showAlert('Error', 'Failed to delete user.', 'error');
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      if (tabId === 'inputTab') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+      }
+    }
+
+    async function loadProjectDropdown(selectedProjectToKeep = "") {
+      const dropdown = document.getElementById("projectName");
+      dropdown.innerHTML = `<option value="">Loading projects...</option>`;
+
+      try {
+        const response = await fetch(`${SCRIPT_URL}?action=getProjects&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
+        const result = await response.json();
+
+        if (result.status === "success") {
+          dropdown.innerHTML = `<option value="">-- Select Project --</option>`;
+          if (result.projects && result.projects.length > 0) {
+            result.projects.forEach(proj => {
+              const opt = document.createElement("option");
+              opt.value = proj;
+              opt.innerText = proj;
+              dropdown.appendChild(opt);
+            });
+          }
+          if (selectedProjectToKeep) {
+            dropdown.value = selectedProjectToKeep;
+          }
+        }
+      } catch (err) {
+        dropdown.innerHTML = `<option value="">Failed to load projects</option>`;
+      }
+    }
+
+    function getSelectedProject() {
+      const customInput = document.getElementById("newProjectName");
+      const selectDropdown = document.getElementById("projectName");
+      
+      const customProj = customInput ? toTitleCase(customInput.value.trim()) : "";
+      const selectProj = selectDropdown ? selectDropdown.value.trim() : "";
+
+      if (customProj !== "") return customProj;
+      if (selectProj !== "") return selectProj;
+      return "";
+    }
+
+    function resetEntryForm() {
+      ["roomID", "area", "surface", "notes"].forEach(id => { document.getElementById(id).value = ""; });
+      activeEditingRow = null;
+    }
+
+    async function submitData() {
+      const btnSave = document.getElementById("btnSave");
+      const activeProject = getSelectedProject();
+      
+      if (!activeProject) {
+        showAlert('Warning', 'Silakan pilih atau buat nama proyek terlebih dahulu pada tab "Room List & Config"!', 'warning');
+        switchTab('listTab');
+        return;
+      }
+
+      const uniqueClientKey = createClientKey("CLIENT");
+
+      const payload = {
+        action: activeEditingRow ? "editRow" : "create",
+        rowIndex: activeEditingRow,
+        surveyorName: currentUser,
+        userPin: currentPin,
+        newProjectName: activeProject,
+        building: toTitleCase(document.getElementById("building").value.trim()),
+        floor: toTitleCase(document.getElementById("floor").value.trim()),
+        roomID: toTitleCase(document.getElementById("roomID").value.trim()),
+        area: document.getElementById("area").value.trim(),
+        surface: toTitleCase(document.getElementById("surface").value.trim()),
+        notes: toTitleCase(document.getElementById("notes").value.trim()),
+        clientKey: uniqueClientKey
+      };
+
+      if (!navigator.onLine) {
+        saveToOfflineQueue(payload);
+        showAlert('Saved Locally', 'Device is offline. Saved to local queue.', 'warning');
+        resetEntryForm();
+        fetchRoomData();
+        return;
+      }
+
+      try {
+        btnSave.disabled = true;
+        btnSave.innerText = "Saving Data...";
+
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          showAlert('Success!', result.message, 'success');
+          resetEntryForm();
+          if (document.getElementById("newProjectName")) {
+            document.getElementById("newProjectName").value = "";
+          }
+
+          await loadProjectDropdown(activeProject);
+          fetchRoomData();
+        } else {
+          showAlert('Save Failed', result.message || 'Server error', 'error');
+        }
+      } catch (err) {
+        saveToOfflineQueue(payload);
+        showAlert('Saved Locally', 'Connection lost. Queued offline.', 'warning');
+        resetEntryForm();
+        fetchRoomData();
+      } finally {
+        btnSave.disabled = false;
+        btnSave.innerText = "Save Room Data";
+      }
+    }
+
+    function toggleSelectAll(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.row-checkbox');
+      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    }
+
+    async function fetchRoomData() {
+      const tableBody = document.getElementById("roomTableBody");
+      const selectAllCb = document.getElementById("selectAllCheckbox");
+      if (selectAllCb) selectAllCb.checked = false;
+
+      const activeProject = getSelectedProject();
+      if (!activeProject) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Please select or create a project first.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">Loading data...</td></tr>`;
+
+      try {
+        const response = await fetch(`${SCRIPT_URL}?projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const result = await response.json();
+
+        if (result.status === "success" && result.data) {
+          const mergedData = mergeServerDataWithPending(result.data, activeProject);
+          setCachedRoomData(activeProject, mergedData);
+          renderRoomTable(mergedData);
+        } else {
+          const cachedData = getCachedRoomData(activeProject);
+          renderRoomTable(cachedData);
+        }
+      } catch (err) {
+        const cachedData = getCachedRoomData(activeProject);
+        renderRoomTable(cachedData, true);
+      }
+    }
+
+    function renderRoomTable(dataList, isOfflineMode = false) {
+      const tableBody = document.getElementById("roomTableBody");
+      tableBody.innerHTML = "";
+
+      if (!dataList || dataList.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
+        return;
+      }
+
+      updateSuggestions(dataList);
+
+      let currentGroupKey = "";
+
+      dataList.forEach(item => {
+        const building = item.building || "Unspecified Building";
+        const floor    = item.floor || "Unspecified Floor";
+        const groupKey = `${building} - ${floor}`;
+
+        if (groupKey !== currentGroupKey) {
+          currentGroupKey = groupKey;
+          const groupTr = document.createElement("tr");
+          groupTr.className = "group-header-row";
+          groupTr.innerHTML = `<td colspan="8">Building: ${escapeHtml(building)} &nbsp;|&nbsp; Floor: ${escapeHtml(floor)}</td>`;
+          tableBody.appendChild(groupTr);
+        }
+
+        const offlineBadge = (item.isOfflineDraft || isOfflineMode) ? `<span class="offline-tag">Local Cache</span>` : '';
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="center-col"><input type="checkbox" class="row-checkbox" value="${escapeHtml(item.rowIndex)}"></td>
+          <td>${escapeHtml(item.building)}</td>
+          <td>${escapeHtml(item.floor)}</td>
+          <td>${escapeHtml(item.roomID)} ${offlineBadge}</td>
+          <td>${escapeHtml(item.area)}</td>
+          <td>${escapeHtml(item.surface)}</td>
+          <td>${escapeHtml(item.notes) || "-"}</td>
+          <td style="text-align: center;"><button class="btn-edit" type="button">Edit</button></td>
+        `;
+        tr.querySelector(".btn-edit").addEventListener("click", () => editRow(item));
+        tableBody.appendChild(tr);
+      });
+    }
+
+    async function duplicateSelectedRooms() {
+      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+      if (selectedCheckboxes.length === 0) {
+        showAlert('Warning', 'Please select at least one room to duplicate!', 'warning');
+        return;
+      }
+
+      const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
+      const activeProject = getSelectedProject();
+      const currentCache = getCachedRoomData(activeProject);
+
+      const buildingsList = [...new Set(currentCache.map(i => i.building).filter(Boolean))];
+      const floorsList    = [...new Set(currentCache.map(i => i.floor).filter(Boolean))];
+
+      const buildingOptionsHtml = buildingsList.map(b => `<option value="${escapeHtml(b)}">`).join('');
+      const floorOptionsHtml    = floorsList.map(f => `<option value="${escapeHtml(f)}">`).join('');
+
+      const { value: formValues } = await Swal.fire({
+        title: `Duplicate ${selectedRows.length} Room(s)`,
+        html:
+          '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
+          `<input id="swal-input-building" list="dupBuildingOpts" class="swal2-input" placeholder="e.g., Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
+          `<datalist id="dupBuildingOpts">${buildingOptionsHtml}</datalist>` +
+          '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
+          `<input id="swal-input-floor" list="dupFloorOpts" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">` +
+          `<datalist id="dupFloorOpts">${floorOptionsHtml}</datalist>`,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Duplicate Rooms',
+        preConfirm: () => {
+          const targetBuilding = toTitleCase(document.getElementById('swal-input-building').value.trim());
+          const targetFloor = toTitleCase(document.getElementById('swal-input-floor').value.trim());
+          if (!targetBuilding || !targetFloor) {
+            Swal.showValidationMessage('Target building and floor cannot be empty!');
+            return false;
+          }
+          return { targetBuilding, targetFloor };
+        }
+      });
+
+      if (formValues) {
+        const payload = {
+          action: "duplicateSelected",
+          selectedRows: selectedRows,
+          targetBuilding: formValues.targetBuilding,
+          targetFloor: formValues.targetFloor,
+          surveyorName: currentUser,
+          userPin: currentPin,
+          newProjectName: activeProject,
+          clientKey: createClientKey("DUP")
+        };
+
+        try {
+          const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (result.status === "success") {
+            showAlert('Success!', result.message, 'success');
+            fetchRoomData();
+          } else {
+            showAlert('Error', result.message, 'error');
+          }
+        } catch (err) {
+          showAlert('Error', 'Connection failed.', 'error');
+        }
+      }
+    }
+
+    async function deleteSelectedRooms() {
+      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+      if (selectedCheckboxes.length === 0) {
+        showAlert('Warning', 'Please select at least one room to delete!', 'warning');
+        return;
+      }
+
+      const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
+      const confirmResult = await Swal.fire({
+        title: 'Delete Selected Rooms?',
+        text: `Are you sure you want to delete ${selectedRows.length} selected room(s)?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Delete All'
+      });
+      if (!confirmResult.isConfirmed) return;
+
+      const activeProject = getSelectedProject();
+      const payload = {
+        action: "deleteSelected",
+        selectedRows: selectedRows,
+        surveyorName: currentUser,
+        userPin: currentPin,
+        newProjectName: activeProject,
+        clientKey: createClientKey("DEL")
+      };
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (result.status === "success") {
+          showAlert('Deleted!', result.message, 'success');
+          fetchRoomData();
+        } else {
+          showAlert('Error', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection failed.', 'error');
+      }
+    }
+
+    function editRow(item) {
+      activeEditingRow = item.rowIndex;
+      document.getElementById("building").value = item.building || "";
+      document.getElementById("floor").value = item.floor || "";
+      document.getElementById("roomID").value = item.roomID || "";
+      document.getElementById("area").value = item.area || "";
+      document.getElementById("surface").value = item.surface || "";
+      document.getElementById("notes").value = item.notes || "";
+      switchTab('inputTab');
+    }
+
+    async function downloadSheet() {
+      const activeProject = getSelectedProject();
+      if (!activeProject) {
+        showAlert('Warning', 'Please select a project first.', 'warning');
+        return;
+      }
+
+      try {
+        const downloadApiUrl = `${SCRIPT_URL}?action=downloadSheet&projectName=${encodeURIComponent(activeProject)}&surveyorName=${encodeURIComponent(currentUser)}&userPin=${encodeURIComponent(currentPin)}&format=xlsx`;
+        const response = await fetch(downloadApiUrl);
+        const result = await response.json();
+
+        if (result.status === "success" && result.downloadUrl) {
+          window.open(result.downloadUrl, '_blank');
+        } else {
+          showAlert('Download Failed', result.message, 'error');
+        }
+      } catch (err) {
+        showAlert('Error', 'Connection error occurred.', 'error');
+      }
+    }
+
+    updateNetworkStatus();
+  </script>
+</body>
+</html>
