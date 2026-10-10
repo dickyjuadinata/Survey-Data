@@ -125,6 +125,12 @@
 </head>
 <body class="font-sans min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white relative overflow-x-hidden w-full">
 
+  <!-- CoreGrip Style Connection Status Pill -->
+  <div id="connectionStatus" class="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg transition-all duration-300 bg-emerald-500 text-white">
+    <span id="statusDot" class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+    <span id="statusText">Online</span>
+  </div>
+
   <!-- Header & Navigation -->
   <header class="themed-header border-b border-gray-800 shadow-sm sticky top-0 z-40 w-full transition-colors duration-300">
     <div class="max-w-7xl mx-auto px-4 py-2.5 flex justify-between items-center w-full h-14">
@@ -207,7 +213,7 @@
       </form>
     </div>
 
-    <!-- ADMIN CONTROL PANEL DASHBOARD (Dengan User Management & Activity Logs) -->
+    <!-- ADMIN CONTROL PANEL DASHBOARD -->
     <div id="adminSection" style="display: none;" class="w-full space-y-6">
       <div class="themed-header p-6 rounded-2xl shadow-xl flex justify-between items-center flex-wrap gap-4">
         <div>
@@ -435,7 +441,31 @@
     document.addEventListener("DOMContentLoaded", () => {
       lucide.createIcons();
       window.addEventListener('resize', handleHeaderNavVisibility);
+      initConnectionMonitor();
     });
+
+    // CoreGrip Style Connection Status Monitor
+    function initConnectionMonitor() {
+      const statusPill = document.getElementById("connectionStatus");
+      const statusText = document.getElementById("statusText");
+      const statusDot = document.getElementById("statusDot");
+
+      function updateStatus() {
+        if (navigator.onLine) {
+          statusPill.className = "fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg transition-all duration-300 bg-emerald-500 text-white";
+          statusText.innerText = "Online";
+          statusDot.className = "w-2 h-2 rounded-full bg-white animate-pulse";
+        } else {
+          statusPill.className = "fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg transition-all duration-300 bg-red-500 text-white";
+          statusText.innerText = "Offline";
+          statusDot.className = "w-2 h-2 rounded-full bg-white";
+        }
+      }
+
+      window.addEventListener('online', updateStatus);
+      window.addEventListener('offline', updateStatus);
+      updateStatus();
+    }
 
     function handleHeaderNavVisibility() {
       const desktop = window.innerWidth >= 768;
@@ -627,7 +657,7 @@
           adminFetchedUsers = result.users || [];
           tbody.innerHTML = "";
           if (adminFetchedUsers.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center themed-text-muted">No users found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center themed-text-muted">No non-admin users found.</td></tr>`;
           } else {
             adminFetchedUsers.forEach(u => {
               const tr = document.createElement("tr");
