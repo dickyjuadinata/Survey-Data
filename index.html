@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Facility & Room Data System</title>
+  <title>Facility & Room Data System (OptiSpace)</title>
 
   <!-- Tailwind CSS & Lucide Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -177,7 +177,7 @@
     </div>
   </header>
 
-  <main class="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-4 md:p-6 overflow-x-hidden flex items-center justify-center">
+  <main class="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-4 md:p-6 overflow-x-hidden flex items-center justify-center">
 
     <!-- LOGIN SECTION -->
     <div id="loginSection" class="max-w-md w-full themed-card rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 space-y-6">
@@ -207,12 +207,12 @@
       </form>
     </div>
 
-    <!-- ADMIN CONTROL PANEL DASHBOARD (Ala CoreGrip Parameters) -->
+    <!-- ADMIN CONTROL PANEL DASHBOARD (Desain CoreGrip & Fitur Lengkap Admin) -->
     <div id="adminSection" style="display: none;" class="w-full space-y-6">
       <div class="themed-header p-6 rounded-2xl shadow-xl flex justify-between items-center flex-wrap gap-4">
         <div>
-          <h2 class="text-xl font-bold text-white">Admin Management Console</h2>
-          <p class="text-xs opacity-90">Manage system users, access approvals, view user profiles & statistics.</p>
+          <h2 class="text-xl font-bold text-white">Admin Control Panel</h2>
+          <p class="text-xs opacity-90" id="displayAdmin">Role: Administrator</p>
         </div>
         <button onclick="loadAdminUsers()" class="bg-white/25 hover:bg-white/35 border border-white/30 text-white px-4 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
           <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Console
@@ -223,55 +223,34 @@
         <h3 class="font-bold text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
           <i data-lucide="users" class="w-4 h-4"></i> User Management & Approvals
         </h3>
-        <div class="overflow-x-auto w-full">
-          <table class="w-full text-sm text-left">
+        <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-slate-700">
+          <table class="w-full text-left text-sm">
             <thead class="themed-table-header text-xs font-semibold">
               <tr>
-                <th class="p-3">User</th>
-                <th class="p-3">Status</th>
+                <th class="p-3">Username</th>
+                <th class="p-3">Current Status</th>
                 <th class="p-3">Change Status</th>
                 <th class="p-3 text-center" style="width: 220px;">Actions</th>
               </tr>
             </thead>
-            <tbody id="adminUserTableBody" class="divide-y divide-gray-200 dark:divide-slate-800">
+            <tbody id="adminUserTableBody" class="divide-y divide-gray-200 dark:divide-slate-700/60">
               <tr>
-                <td colspan="4" class="p-6 text-center themed-text-muted">Loading users...</td>
+                <td colspan="4" class="p-6 text-center themed-text-muted">Click Refresh Console to load data...</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
+      <!-- Detail Profil Pengguna (Fitur Profil User) -->
       <div id="adminUserDetailContainer" class="hidden themed-card p-6 rounded-2xl shadow-xl space-y-4 w-full border-2 border-blue-500/30">
         <div class="flex justify-between items-center">
           <h3 class="font-bold text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2" id="userDetailTitle">
-            <i data-lucide="user-check" class="w-4 h-4"></i> User Profile & Performance Stats
+            <i data-lucide="user-check" class="w-4 h-4"></i> User Profile Details
           </h3>
           <button onclick="closeUserDetail()" class="text-xs font-semibold px-3 py-1 bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 rounded-lg">Close</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="userStatsOverview"></div>
-      </div>
-
-      <div class="themed-card p-6 rounded-2xl shadow-xl space-y-4 w-full">
-        <h3 class="font-bold text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
-          <i data-lucide="file-text" class="w-4 h-4"></i> System Activity Audit Logs
-        </h3>
-        <div class="overflow-y-auto max-h-80 custom-scrollbar w-full">
-          <table class="w-full text-xs text-left">
-            <thead class="themed-table-header sticky top-0 font-semibold">
-              <tr>
-                <th class="p-2.5">Timestamp</th>
-                <th class="p-2.5">User</th>
-                <th class="p-2.5">Activity Description</th>
-              </tr>
-            </thead>
-            <tbody id="adminLogsTable" class="divide-y divide-gray-200 dark:divide-slate-800">
-              <tr>
-                <td colspan="3" class="p-4 text-center themed-text-muted">No activity logs recorded.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
 
@@ -481,7 +460,6 @@
       }
     }
 
-    /* SUGGESTIONS & AUTOCOMPLETE */
     function updateSuggestions(dataArray) {
       if (!dataArray || !Array.isArray(dataArray)) return;
 
@@ -558,6 +536,7 @@
           document.getElementById("signOutBtnHeader").style.display = "flex";
 
           if (isAdmin) {
+            document.getElementById("displayAdmin").innerText = `Admin: ${currentUser}`;
             document.getElementById("adminSection").style.display = "block";
             document.getElementById("appSection").style.display = "none";
             handleHeaderNavVisibility();
@@ -613,114 +592,76 @@
 
     async function loadAdminUsers() {
       const tbody = document.getElementById("adminUserTableBody");
-      tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center themed-text-muted">Loading users and logs...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center themed-text-muted">Loading users...</td></tr>`;
 
       try {
         const result = await adminPost({ action: "getAllUsers" });
-        if (result.status === "success") {
-          adminFetchedUsers = result.users || [];
-          renderAdminUsers(result.users || []);
-          renderAdminLogs(result.activityLogs || []);
-        } else {
-          tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-red-500">Failed to load admin console data.</td></tr>`;
+        if (result.status === "success" && result.users) {
+          adminFetchedUsers = result.users;
+          tbody.innerHTML = "";
+          if (result.users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center themed-text-muted">No users found.</td></tr>`;
+            return;
+          }
+
+          result.users.forEach(u => {
+            const tr = document.createElement("tr");
+            tr.className = "hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors";
+            tr.innerHTML = `
+              <td class="p-3 font-semibold">${escapeHtml(u.username)}</td>
+              <td class="p-3"><span>${escapeHtml(u.status)}</span></td>
+              <td class="p-3">
+                <select class="status-select themed-input border rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+                  <option value="PENDING">PENDING</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="BLOCKED">BLOCKED</option>
+                </select>
+                <button type="button" class="btn-update-status ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">Update</button>
+              </td>
+              <td class="p-3 text-center space-x-1">
+                <button type="button" class="btn-view-profile bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Profile</button>
+                <button type="button" class="btn-reset-pin bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Reset</button>
+                <button type="button" class="btn-delete-user bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Delete</button>
+              </td>
+            `;
+            const select = tr.querySelector(".status-select");
+            select.value = u.status;
+            tr.querySelector(".btn-update-status").addEventListener("click", () => updateUserStatus(u.username, select.value));
+            tr.querySelector(".btn-view-profile").addEventListener("click", () => viewUserProfile(u.username));
+            tr.querySelector(".btn-reset-pin").addEventListener("click", () => resetUserPin(u.username));
+            tr.querySelector(".btn-delete-user").addEventListener("click", () => deleteUserAndFiles(u.username));
+            tbody.appendChild(tr);
+          });
         }
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-red-500">Connection error while fetching admin console.</td></tr>`;
+        showAlert('Error', 'Connection error while fetching user list.', 'error');
       }
     }
 
-    function renderAdminUsers(users) {
-      const tbody = document.getElementById("adminUserTableBody");
-      tbody.innerHTML = "";
-
-      if (!users || users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center themed-text-muted">No registered users found.</td></tr>`;
-        return;
-      }
-
-      users.forEach(u => {
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors";
-        
-        let statusBadge = u.status === "APPROVED" || u.status === "ACTIVE"
-          ? `<span class="px-2.5 py-1 text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 rounded-full">APPROVED</span>`
-          : `<span class="px-2.5 py-1 text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 rounded-full">${escapeHtml(u.status || 'PENDING')}</span>`;
-
-        tr.innerHTML = `
-          <td class="p-3 font-semibold">${escapeHtml(u.username)}</td>
-          <td class="p-3">${statusBadge}</td>
-          <td class="p-3">
-            <select class="status-select themed-input border rounded-lg px-2.5 py-1.5 text-xs font-semibold">
-              <option value="PENDING">PENDING</option>
-              <option value="APPROVED">APPROVED</option>
-              <option value="BLOCKED">BLOCKED</option>
-            </select>
-            <button type="button" class="btn-update-status ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">Update</button>
-          </td>
-          <td class="p-3 text-center space-x-1">
-            <button type="button" class="btn-view-profile bg-sky-600 hover:bg-sky-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Profile</button>
-            <button type="button" class="btn-reset-pin bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">PIN</button>
-            <button type="button" class="btn-delete-user bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition">Delete</button>
-          </td>
-        `;
-        const select = tr.querySelector(".status-select");
-        select.value = u.status;
-        tr.querySelector(".btn-update-status").addEventListener("click", () => updateUserStatus(u.username, select.value));
-        tr.querySelector(".btn-view-profile").addEventListener("click", () => viewUserDetail(u.username));
-        tr.querySelector(".btn-reset-pin").addEventListener("click", () => resetUserPin(u.username));
-        tr.querySelector(".btn-delete-user").addEventListener("click", () => deleteUserAndFiles(u.username));
-        tbody.appendChild(tr);
-      });
-      lucide.createIcons();
-    }
-
-    function renderAdminLogs(logs) {
-      const tbody = document.getElementById("adminLogsTable");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-
-      if (!logs || logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center themed-text-muted">No activity logs recorded.</td></tr>`;
-        return;
-      }
-
-      logs.slice().reverse().forEach(l => {
-        const tr = document.createElement("tr");
-        const timeFormatted = l.time ? new Date(l.time).toLocaleString() : "-";
-        tr.innerHTML = `
-          <td class="p-2.5 themed-text-muted">${escapeHtml(timeFormatted)}</td>
-          <td class="p-2.5 font-semibold">${escapeHtml(l.user || 'System')}</td>
-          <td class="p-2.5">${escapeHtml(l.activity || l.description || '-')}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function viewUserDetail(username) {
+    async function viewUserProfile(username) {
       const container = document.getElementById("adminUserDetailContainer");
       const title = document.getElementById("userDetailTitle");
       const overview = document.getElementById("userStatsOverview");
 
       container.classList.remove("hidden");
-      title.innerHTML = `<i data-lucide="user-check" class="w-4 h-4"></i> Profile & Stats: ${escapeHtml(username)}`;
+      title.innerHTML = `<i data-lucide="user-check" class="w-4 h-4"></i> Profile & Stats: ${username}`;
 
-      const targetUserObj = adminFetchedUsers.find(u => u.username.toLowerCase() === username.toLowerCase()) || {};
+      let uObj = adminFetchedUsers.find(u => u.username === username) || { status: 'ACTIVE', username: username };
 
       overview.innerHTML = `
         <div class="themed-subcard p-3 rounded-xl border">
           <span class="text-xs themed-text-muted block">Username</span>
-          <span class="text-base font-bold text-blue-600 dark:text-blue-400">${escapeHtml(username)}</span>
+          <span class="text-base font-bold text-blue-600 dark:text-blue-400">${escapeHtml(uObj.username)}</span>
         </div>
         <div class="themed-subcard p-3 rounded-xl border">
-          <span class="text-xs themed-text-muted block">Current Status</span>
-          <span class="text-base font-bold text-emerald-600 dark:text-emerald-400">${escapeHtml(targetUserObj.status || 'ACTIVE')}</span>
+          <span class="text-xs themed-text-muted block">Account Status</span>
+          <span class="text-base font-bold text-emerald-600 dark:text-emerald-400">${escapeHtml(uObj.status)}</span>
         </div>
         <div class="themed-subcard p-3 rounded-xl border">
-          <span class="text-xs themed-text-muted block">System Access</span>
-          <span class="text-base font-bold">Surveyor Role</span>
+          <span class="text-xs themed-text-muted block">Role</span>
+          <span class="text-base font-bold">Surveyor</span>
         </div>
       `;
-
       lucide.createIcons();
       container.scrollIntoView({ behavior: 'smooth' });
     }
@@ -747,7 +688,6 @@
         input: 'password',
         inputPlaceholder: 'New PIN',
         showCancelButton: true,
-        confirmButtonColor: '#0066FF',
         inputValidator: v => (!v || !v.trim()) ? 'PIN cannot be empty' : undefined
       });
       if (!newPin) return;
