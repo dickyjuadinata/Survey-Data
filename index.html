@@ -466,6 +466,7 @@
     let currentUser = "";
     let currentPin  = "";
     let activeEditingRow = null;
+    let currentRoomDataList = [];
 
     function toTitleCase(str) {
       if (!str) return "";
@@ -829,9 +830,11 @@
         const result = await response.json();
 
         if (result.status === "success" && result.data) {
-          updateSuggestions(result.data); // Memperbarui autokomplet berdasarkan data dari server
+          currentRoomDataList = result.data;
+          updateSuggestions(result.data);
           renderRoomTable(result.data);
         } else {
+          currentRoomDataList = [];
           tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No room data to display.</td></tr>`;
         }
       } catch (err) {
@@ -889,13 +892,21 @@
       const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
       const activeProject = getSelectedProject();
 
+      const buildingsList = [...new Set(currentRoomDataList.map(i => i.building).filter(Boolean))];
+      const floorsList    = [...new Set(currentRoomDataList.map(i => i.floor).filter(Boolean))];
+
+      const buildingOptionsHtml = buildingsList.map(b => `<option value="${escapeHtml(b)}">`).join('');
+      const floorOptionsHtml    = floorsList.map(f => `<option value="${escapeHtml(f)}">`).join('');
+
       const { value: formValues } = await Swal.fire({
         title: `Duplicate ${selectedRows.length} Room(s)`,
         html:
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Building Name:</label></div>' +
-          `<input id="swal-input-building" class="swal2-input" placeholder="e.g., Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
+          `<input id="swal-input-building" list="dupBuildingOpts" class="swal2-input" placeholder="e.g., Annex" style="margin-top:0; margin-bottom:15px; width:100%; box-sizing:border-box;">` +
+          `<datalist id="dupBuildingOpts">${buildingOptionsHtml}</datalist>` +
           '<div style="text-align: left; margin-bottom: 8px;"><label style="font-weight:600; font-size:13px;">Target Floor Name:</label></div>' +
-          `<input id="swal-input-floor" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">`,
+          `<input id="swal-input-floor" list="dupFloorOpts" class="swal2-input" placeholder="e.g., Ground / 1st Floor" style="margin-top:0; width:100%; box-sizing:border-box;">` +
+          `<datalist id="dupFloorOpts">${floorOptionsHtml}</datalist>`,
         focusConfirm: false,
         showCancelButton: true,
         confirmButtonText: 'Duplicate Rooms',
